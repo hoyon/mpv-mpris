@@ -68,6 +68,7 @@ typedef struct UserData
 {
     mpv_handle *mpv;
     GMainLoop *loop;
+    gint bus_id;
     GDBusConnection *connection;
     GDBusInterfaceInfo *root_interface_info;
     GDBusInterfaceInfo *player_interface_info;
@@ -572,6 +573,7 @@ static void on_bus_acquired(GDBusConnection *connection,
                             G_GNUC_UNUSED const char *name,
                             gpointer user_data)
 {
+    g_print("%p\n", connection);
     GError *error = NULL;
     UserData *ud = user_data;
     ud->connection = connection;
@@ -590,6 +592,23 @@ static void on_bus_acquired(GDBusConnection *connection,
                                       user_data, NULL, &error);
     if (error != NULL) {
         g_printerr("%s", error->message);
+    }
+}
+
+static void on_name_lost(GDBusConnection *connection,
+                         G_GNUC_UNUSED const char *name,
+                         gpointer user_data)
+{
+    if (connection) {
+        UserData *ud = user_data;
+        pid_t pid = getpid();
+        char *name = g_strdup_printf("org.mpris.MediaPlayer2.mpv.instance%d", pid);
+        ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+                                    name,
+                                    G_BUS_NAME_OWNER_FLAGS_NONE,
+                                    NULL, NULL, NULL,
+                                    &ud, NULL);
+        g_free(name);
     }
 }
 
@@ -708,7 +727,6 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
 int mpv_open_cplugin(mpv_handle *mpv)
 {
     GMainLoop *loop;
-    guint id;
     UserData ud = {};
     GError *error = NULL;
     GDBusNodeInfo *introspection_data = NULL;
@@ -732,11 +750,13 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.loop_status = LOOP_NONE;
     ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
 
-    id = g_bus_own_name(G_BUS_TYPE_SESSION,
-                        "org.mpris.MediaPlayer2.mpv",
-                        G_BUS_NAME_OWNER_FLAGS_NONE,
-                        on_bus_acquired,
-                        NULL, NULL, &ud, NULL);
+    ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+                               "org.mpris.MediaPlayer2.mpv",
+                               G_BUS_NAME_OWNER_FLAGS_NONE,
+                               on_bus_acquired,
+                               NULL,
+                               on_name_lost,
+                               &ud, NULL);
 
     // Receive event for property changes
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);
@@ -755,7 +775,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     g_main_loop_run(loop);
 
-    g_bus_unown_name(id);
+    g_bus_unown_name(ud.bus_id);
     g_main_loop_unref(loop);
     g_dbus_node_info_unref(introspection_data);
 
