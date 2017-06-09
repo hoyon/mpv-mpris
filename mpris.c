@@ -573,7 +573,6 @@ static void on_bus_acquired(GDBusConnection *connection,
                             G_GNUC_UNUSED const char *name,
                             gpointer user_data)
 {
-    g_print("%p\n", connection);
     GError *error = NULL;
     UserData *ud = user_data;
     ud->connection = connection;
