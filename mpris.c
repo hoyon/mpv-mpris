@@ -90,10 +90,14 @@ static void add_metadata_item_string(mpv_handle *mpv, GVariantDict *dict,
 {
     char *temp = mpv_get_property_string(mpv, property);
     if (temp) {
+#if GLIB_CHECK_VERSION(2, 52, 0)
         char *validated = g_utf8_make_valid(temp, -1);
         g_variant_dict_insert(dict, tag, "s", validated);
-        mpv_free(temp);
         g_free(validated);
+#else
+        g_variant_dict_insert(dict, tag, "s", temp);
+#endif
+        mpv_free(temp);
     }
 }
 
@@ -120,9 +124,13 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
 
         for (; *iter; iter++) {
             char *item = *iter;
+#if GLIB_CHECK_VERSION(2, 52, 0)
             char *validated = g_utf8_make_valid(item, -1);
             g_variant_builder_add(&builder, "s", validated);
             g_free(validated);
+#else
+            g_variant_builder_add(&builder, "s", item);
+#endif
         }
 
         g_variant_dict_insert(dict, tag, "as", &builder);
