@@ -651,6 +651,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     } else if (g_strcmp0(name, "volume") == 0) {
         double *volume = data;
+        *volume /= 100;
         prop_name = "Volume";
         prop_value = g_variant_new_double(*volume);
 
