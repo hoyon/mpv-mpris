@@ -422,6 +422,7 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
     } else if (g_strcmp0(property_name, "Volume") == 0) {
         double volume;
         mpv_get_property(ud->mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
+        volume /= 100;
         ret = g_variant_new_double(volume);
 
     } else if (g_strcmp0(property_name, "Position") == 0) {
@@ -498,8 +499,9 @@ static gboolean set_property_player(G_GNUC_UNUSED GDBusConnection *connection,
         int shuffle = g_variant_get_boolean(value);
         mpv_set_property(ud->mpv, "playlist-shuffle", MPV_FORMAT_FLAG, &shuffle);
 
-    } else if (g_strcmp0(property_name, "Shuffle") == 0) {
+    } else if (g_strcmp0(property_name, "Volume") == 0) {
         double volume = g_variant_get_double(value);
+        volume *= 100;
         mpv_set_property(ud->mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
 
     } else {
