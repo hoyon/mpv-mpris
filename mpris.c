@@ -345,11 +345,11 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
         g_dbus_method_invocation_return_value(invocation, NULL);
 
     } else if (g_strcmp0(method_name, "Seek") == 0) {
-        int64_t offset; // in milliseconds
+        int64_t offset_us; // in microseconds
         char *offset_str;
-        g_variant_get(parameters, "(x)", &offset);
-        offset /= 1000000;
-        offset_str = g_strdup_printf("%" PRId64, offset);
+        g_variant_get(parameters, "(x)", &offset_us);
+        double offset_s = offset_us / 1000000.0;
+        offset_str = g_strdup_printf("%f", offset_s);
 
         const char *cmd[] = {"seek", offset_str, NULL};
         mpv_command_async(ud->mpv, 0, cmd);
@@ -359,14 +359,15 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
     } else if (g_strcmp0(method_name, "SetPosition") == 0) {
         int64_t current_id;
         char *object_path;
-        int64_t new_position;
+        double new_position_s;
+        int64_t new_position_us;
 
         mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &current_id);
-        g_variant_get(parameters, "(&ox)", &object_path, &new_position);
-        new_position /= 1000000; // us -> s
+        g_variant_get(parameters, "(&ox)", &object_path, &new_position_us);
+        new_position_s = ((float)new_position_us) / 1000000.0; // us -> s
 
         if (current_id == g_ascii_strtoll(object_path + 1, NULL, 10)) {
-            mpv_set_property(ud->mpv, "time-pos", MPV_FORMAT_INT64, &new_position);
+            mpv_set_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &new_position_s);
         }
 
         g_dbus_method_invocation_return_value(invocation, NULL);
@@ -426,10 +427,11 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
         ret = g_variant_new_double(volume);
 
     } else if (g_strcmp0(property_name, "Position") == 0) {
-        int64_t position;
-        mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_INT64, &position);
-        position *= 1000000; // s -> us
-        ret = g_variant_new_int64(position);
+        double position_s;
+        int64_t position_us;
+        mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &position_s);
+        position_us = position_s * 1000000.0; // s -> us
+        ret = g_variant_new_int64(position_us);
 
     } else if (g_strcmp0(property_name, "MinimumRate") == 0) {
         ret = g_variant_new_double(0.01);
@@ -561,11 +563,12 @@ static gboolean emit_property_changes(gpointer data)
 static void emit_seeked_signal(UserData *ud)
 {
     GVariant *params;
-    int64_t position;
+    double position_s;
+    int64_t position_us;
     GError *error = NULL;
-    mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_INT64, &position);
-    position *= 1000000; // s -> us
-    params = g_variant_new("(x)", position);
+    mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &position_s);
+    position_us = position_s * 1000000.0; // s -> us
+    params = g_variant_new("(x)", position_us);
 
     g_dbus_connection_emit_signal(ud->connection, NULL,
                                   "/org/mpris/MediaPlayer2",
