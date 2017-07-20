@@ -638,7 +638,8 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         prop_name = "PlaybackStatus";
         prop_value = g_variant_new_string(ud->status);
 
-    } else if (g_strcmp0(name, "media-title") == 0) {
+    } else if (g_strcmp0(name, "media-title") == 0 ||
+               g_strcmp0(name, "duration") == 0) {
         // Free exising metadata object
         if (ud->metadata) {
             g_variant_unref(ud->metadata);
@@ -778,6 +779,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "volume", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "loop-file", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "loop-playlist", MPV_FORMAT_FLAG);
+    mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
 
     // Run callback whenever there are events
     fd = mpv_get_wakeup_pipe(mpv);
