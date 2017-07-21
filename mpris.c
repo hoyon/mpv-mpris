@@ -143,22 +143,23 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
 static GVariant *create_metadata(UserData *ud)
 {
     GVariantDict dict;
-    int64_t temp_int;
+    int64_t track;
+    double duration;
     char *temp_str;
     int res;
 
     g_variant_dict_init(&dict, NULL);
 
     // mpris:trackid
-    mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &temp_int);
-    temp_str = g_strdup_printf("/%" PRId64, temp_int);
+    mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &track);
+    temp_str = g_strdup_printf("/%" PRId64, track);
     g_variant_dict_insert(&dict, "mpris:trackid", "o", temp_str);
     g_free(temp_str);
 
     // mpris:length
-    res = mpv_get_property(ud->mpv, "duration", MPV_FORMAT_INT64, &temp_int);
+    res = mpv_get_property(ud->mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
     if (res == MPV_ERROR_SUCCESS) {
-        g_variant_dict_insert(&dict, "mpris:length", "x", temp_int * 1000000);
+        g_variant_dict_insert(&dict, "mpris:length", "x", (int64_t)(duration * 1000000.0));
     }
 
     // initial value. Replaced with metadata value if available
