@@ -1,8 +1,10 @@
-CFLAGS=-std=c99 -Wall -Wextra -O2 `pkg-config --cflags gio-2.0 gio-unix-2.0 mpv`
-LDFLAGS=`pkg-config --libs gio-2.0 gio-unix-2.0`
+PKG_CONFIG = pkg-config
+
+CFLAGS=-std=c99 -Wall -Wextra -O2 `$(PKG_CONFIG) --cflags gio-2.0 gio-unix-2.0 mpv`
+LDFLAGS=`$(PKG_CONFIG) --libs gio-2.0 gio-unix-2.0`
 
 mpris.so: mpris.c
-	gcc mpris.c -o mpris.so $(CFLAGS) $(LDFLAGS) -shared -fPIC
+	$(CC) mpris.c -o mpris.so $(CFLAGS) $(LDFLAGS) -shared -fPIC
 
 install: mpris.so
 	mkdir -p $(HOME)/.config/mpv/scripts
