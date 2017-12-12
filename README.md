@@ -3,6 +3,25 @@ MPRIS plugin for mpv written in C. Requires mpv to be built with `--enable-cplug
 
 Implements `org.mpris.MediaPlayer2` and `org.mpris.MediaPlayer2.Player` D-Bus interfaces.
 
-#### TODO
+## Build and Install
+
+Build requirements:
+ - C99 compiler (gcc or clang)
+ - pkg-config
+ - mpv development files
+ - glib development files
+ - gio development files
+
+Building should be as simple as running `make` in the cloned directory.
+
+To install either run `make install` or copy the compiled `mpris.so` file into the directory `~/.config/mpv/scripts`. 
+
+The plugin can be used without installing by running mpv with the `--script` flag:
+
+```
+mpv --script /path/to/mpris.so video.mp4
+```
+
+## TODO
  - `org.mpris.MediaPlayer2.TrackList`
  - `org.mpris.MediaPlayer2.Playlists`
