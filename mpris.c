@@ -727,7 +727,6 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
             handle_property_change(prop_event->name, prop_event->data, ud);
         } break;
         case MPV_EVENT_PLAYBACK_RESTART:
-            ud->status = STATUS_PLAYING;
             emit_seeked_signal(ud);
             break;
         default:
