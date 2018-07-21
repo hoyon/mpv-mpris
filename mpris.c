@@ -737,6 +737,11 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
     return TRUE;
 }
 
+static void wakeup_handler(void *fd)
+{
+    write(*((int*)fd), "0", 1);
+}
+
 // Plugin entry point
 int mpv_open_cplugin(mpv_handle *mpv)
 {
@@ -744,7 +749,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     UserData ud = {};
     GError *error = NULL;
     GDBusNodeInfo *introspection_data = NULL;
-    int fd = 0;
+    int pipe[2];
 
     loop = g_main_loop_new(NULL, FALSE);
 
@@ -782,8 +787,13 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
 
     // Run callback whenever there are events
-    fd = mpv_get_wakeup_pipe(mpv);
-    g_unix_fd_add(fd, G_IO_IN, event_handler, &ud);
+    g_unix_open_pipe(pipe, 0, &error);
+    if (error != NULL) {
+        g_printerr("%s", error->message);
+    }
+    fcntl(pipe[0], F_SETFL, O_NONBLOCK);
+    mpv_set_wakeup_callback(mpv, wakeup_handler, &pipe[1]);
+    g_unix_fd_add(pipe[0], G_IO_IN, event_handler, &ud);
 
     // Emit any new property changes every 100ms
     g_timeout_add(100, emit_property_changes, &ud);
