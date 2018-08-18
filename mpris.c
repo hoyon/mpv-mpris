@@ -140,6 +140,44 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
     }
 }
 
+static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
+{
+    char *path;
+    char *uri;
+
+    path = mpv_get_property_string(mpv, "path");
+    if (!path) {
+        return;
+    }
+
+    uri = g_uri_parse_scheme(path);
+    if (uri) {
+        g_variant_dict_insert(dict, "xesam:url", "s", path);
+        g_free(uri);
+    } else {
+        char *converted;
+
+        if (g_path_is_absolute(path)) {
+            converted = g_filename_to_uri(path, NULL, NULL);
+        } else {
+            char *working_dir;
+            char *absolute;
+
+            working_dir = mpv_get_property_string(mpv, "working-directory");
+            absolute = g_build_filename(working_dir, path, NULL);
+            converted = g_filename_to_uri(absolute, NULL, NULL);
+
+            mpv_free(working_dir);
+            g_free(absolute);
+        }
+        g_variant_dict_insert(dict, "xesam:url", "s", converted);
+
+        g_free(converted);
+    }
+
+    mpv_free(path);
+}
+
 static GVariant *create_metadata(UserData *ud)
 {
     GVariantDict dict;
@@ -175,6 +213,8 @@ static GVariant *create_metadata(UserData *ud)
 
     add_metadata_item_int(ud->mpv, &dict, "metadata/by-key/Track", "xesam:trackNumber");
     add_metadata_item_int(ud->mpv, &dict, "metadata/by-key/Disc", "xesam:discNumber");
+
+    add_metadata_uri(ud->mpv, &dict);
 
     return g_variant_dict_end(&dict);
 }
