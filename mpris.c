@@ -376,12 +376,12 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
         g_dbus_method_invocation_return_value(invocation, NULL);
 
     } else if (g_strcmp0(method_name, "Next") == 0) {
-        const char *cmd[] = {"playlist_next", NULL};
+        const char *cmd[] = {"playlist-next", "force", NULL};
         mpv_command_async(ud->mpv, 0, cmd);
         g_dbus_method_invocation_return_value(invocation, NULL);
 
     } else if (g_strcmp0(method_name, "Previous") == 0) {
-        const char *cmd[] = {"playlist_prev", NULL};
+        const char *cmd[] = {"playlist-prev", "force", NULL};
         mpv_command_async(ud->mpv, 0, cmd);
         g_dbus_method_invocation_return_value(invocation, NULL);
 
