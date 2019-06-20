@@ -37,7 +37,8 @@ mpv --script /path/to/mpris.so video.mp4
 
 ## Notes
 
-This plugin requires mpv to be built with `--enable-cplugins` (default as of mpv 0.26).
+This plugin requires mpv to be built with `--enable-cplugins` (default as of mpv 0.26)
+and to be built with Lua support (to enable loading scripts).
 
 ### D-Bus interfaces
 
