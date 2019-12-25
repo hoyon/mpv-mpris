@@ -76,6 +76,7 @@ typedef struct UserData
     const char *loop_status;
     GHashTable *changed_properties;
     GVariant *metadata;
+    gboolean seek_expected;
 } UserData;
 
 static const char *STATUS_PLAYING = "Playing";
@@ -766,9 +767,15 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
             mpv_event_property *prop_event = (mpv_event_property*)event->data;
             handle_property_change(prop_event->name, prop_event->data, ud);
         } break;
-        case MPV_EVENT_PLAYBACK_RESTART:
-            emit_seeked_signal(ud);
+        case MPV_EVENT_SEEK:
+            ud->seek_expected = TRUE;
             break;
+        case MPV_EVENT_PLAYBACK_RESTART: {
+            if (ud->seek_expected) {
+                emit_seeked_signal(ud);
+                ud->seek_expected = FALSE;
+            }
+         } break;
         default:
             break;
         }
@@ -808,6 +815,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.status = STATUS_STOPPED;
     ud.loop_status = LOOP_NONE;
     ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
+    ud.seek_expected = FALSE;
 
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                "org.mpris.MediaPlayer2.mpv",
