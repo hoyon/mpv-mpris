@@ -702,14 +702,13 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         prop_value = g_variant_new_double(*volume);
 
     } else if (g_strcmp0(name, "loop-file") == 0) {
-        int *file = data;
-        if (*file) {
+        char *status = *(char **)data;
+        if (g_strcmp0(status, "yes") == 0) {
             ud->loop_status = LOOP_TRACK;
-            g_print("loop-file\n");
         } else {
-            int playlist;
-            mpv_get_property(ud->mpv, "loop-playlist", MPV_FORMAT_FLAG, &playlist);
-            if (playlist) {
+            char *playlist_status;
+            mpv_get_property(ud->mpv, "loop-playlist", MPV_FORMAT_STRING, &playlist_status);
+            if (g_strcmp0(playlist_status, "inf") == 0) {
                 ud->loop_status = LOOP_PLAYLIST;
             } else {
                 ud->loop_status = LOOP_NONE;
@@ -717,14 +716,13 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         }
 
     } else if (g_strcmp0(name, "loop-playlist") == 0) {
-        int *playlist = data;
-        if (*playlist) {
+        char *status = *(char **)data;
+        if (g_strcmp0(status, "inf") == 0) {
             ud->loop_status = LOOP_PLAYLIST;
-            g_print("loop-playlist\n");
         } else {
-            int file;
-            mpv_get_property(ud->mpv, "loop-file", MPV_FORMAT_FLAG, &file);
-            if (playlist) {
+            char *file_status;
+            mpv_get_property(ud->mpv, "loop-file", MPV_FORMAT_STRING, &file_status);
+            if (g_strcmp0(file_status, "yes") == 0) {
                 ud->loop_status = LOOP_TRACK;
             } else {
                 ud->loop_status = LOOP_NONE;
@@ -830,8 +828,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "media-title", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "speed", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "volume", MPV_FORMAT_DOUBLE);
-    mpv_observe_property(mpv, 0, "loop-file", MPV_FORMAT_FLAG);
-    mpv_observe_property(mpv, 0, "loop-playlist", MPV_FORMAT_FLAG);
+    mpv_observe_property(mpv, 0, "loop-file", MPV_FORMAT_STRING);
+    mpv_observe_property(mpv, 0, "loop-playlist", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
 
     // Run callback whenever there are events
