@@ -141,6 +141,44 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
     }
 }
 
+static gchar *path_to_uri(mpv_handle *mpv, char *path)
+{
+#if GLIB_CHECK_VERSION(2, 58, 0)
+    // version which uses g_canonicalize_filename which expands .. and .
+    // and makes the uris neater
+    char* working_dir;
+    gchar* canonical;
+    gchar *uri;
+
+    working_dir = mpv_get_property_string(mpv, "working-directory");
+    canonical = g_canonicalize_filename(path, working_dir);
+    uri = g_filename_to_uri(canonical, NULL, NULL);
+
+    mpv_free(working_dir);
+    g_free(canonical);
+
+    return uri;
+#else
+    // for compatibility with older versions of glib
+    gchar *converted;
+    if (g_path_is_absolute(path)) {
+        converted = g_filename_to_uri(path, NULL, NULL);
+    } else {
+        char* working_dir;
+        gchar* absolute;
+
+        working_dir = mpv_get_property_string(mpv, "working-directory");
+        absolute = g_build_filename(working_dir, path, NULL);
+        converted = g_filename_to_uri(absolute, NULL, NULL);
+
+        mpv_free(working_dir);
+        g_free(absolute);
+    }
+
+    return converted;
+#endif
+}
+
 static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
 {
     char *path;
@@ -156,26 +194,66 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
         g_variant_dict_insert(dict, "xesam:url", "s", path);
         g_free(uri);
     } else {
-        char *converted;
-
-        if (g_path_is_absolute(path)) {
-            converted = g_filename_to_uri(path, NULL, NULL);
-        } else {
-            char *working_dir;
-            char *absolute;
-
-            working_dir = mpv_get_property_string(mpv, "working-directory");
-            absolute = g_build_filename(working_dir, path, NULL);
-            converted = g_filename_to_uri(absolute, NULL, NULL);
-
-            mpv_free(working_dir);
-            g_free(absolute);
-        }
+        gchar *converted = path_to_uri(mpv, path);
         g_variant_dict_insert(dict, "xesam:url", "s", converted);
-
         g_free(converted);
     }
 
+    mpv_free(path);
+}
+
+// Copied from https://github.com/videolan/vlc/blob/master/modules/meta_engine/folder.c
+static const char art_files[][20] = {
+    "Folder.jpg",           /* Windows */
+    "Folder.png",
+    "AlbumArtSmall.jpg",    /* Windows */
+    "AlbumArt.jpg",         /* Windows */
+    "Album.jpg",
+    ".folder.png",          /* KDE?    */
+    "cover.jpg",            /* rockbox */
+    "cover.png",
+    "cover.gif",
+    "front.jpg",
+    "front.png",
+    "front.gif",
+    "front.bmp",
+    "thumb.jpg",
+};
+
+static const int art_files_count = sizeof(art_files) / sizeof(art_files[0]);
+
+static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
+{
+    char *path;
+    gchar *dirname;
+    gboolean found = FALSE;
+
+    path = mpv_get_property_string(mpv, "path");
+
+    if (!path) {
+        return;
+    }
+
+    dirname = g_path_get_dirname(path);
+
+    for (int i = 0; i < art_files_count; i++) {
+        gchar *filename = g_build_filename(dirname, art_files[i], NULL);
+
+        if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+            gchar *uri = path_to_uri(mpv, filename);
+            g_variant_dict_insert(dict, "mpris:artUrl", "s", uri);
+            g_free(uri);
+            found = TRUE;
+        }
+
+        g_free(filename);
+
+        if (found) {
+            break;
+        }
+    }
+
+    g_free(dirname);
     mpv_free(path);
 }
 
@@ -216,6 +294,7 @@ static GVariant *create_metadata(UserData *ud)
     add_metadata_item_int(ud->mpv, &dict, "metadata/by-key/Disc", "xesam:discNumber");
 
     add_metadata_uri(ud->mpv, &dict);
+    add_metadata_art(ud->mpv, &dict);
 
     return g_variant_dict_end(&dict);
 }
