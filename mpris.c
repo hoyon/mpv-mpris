@@ -86,18 +86,31 @@ static const char *LOOP_NONE = "None";
 static const char *LOOP_TRACK = "Track";
 static const char *LOOP_PLAYLIST = "Playlist";
 
+static gchar *string_to_utf8(gchar *maybe_utf8)
+{
+    gchar *attempted_validation;
+#if GLIB_CHECK_VERSION(2, 52, 0)
+    attempted_validation = g_utf8_make_valid(maybe_utf8, -1);
+#else
+    attempted_validation = g_strdup(maybe_utf8);
+#endif
+
+    if (g_utf8_validate(attempted_validation, -1, NULL)) {
+        return attempted_validation;
+    } else {
+        g_free(attempted_validation);
+        return g_strdup("<invalid utf8>");
+    }
+}
+
 static void add_metadata_item_string(mpv_handle *mpv, GVariantDict *dict,
                                      const char *property, const char *tag)
 {
     char *temp = mpv_get_property_string(mpv, property);
     if (temp) {
-#if GLIB_CHECK_VERSION(2, 52, 0)
-        char *validated = g_utf8_make_valid(temp, -1);
-        g_variant_dict_insert(dict, tag, "s", validated);
-        g_free(validated);
-#else
-        g_variant_dict_insert(dict, tag, "s", temp);
-#endif
+        char *utf8 = string_to_utf8(temp);
+        g_variant_dict_insert(dict, tag, "s", utf8);
+        g_free(utf8);
         mpv_free(temp);
     }
 }
@@ -125,13 +138,9 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
 
         for (; *iter; iter++) {
             char *item = *iter;
-#if GLIB_CHECK_VERSION(2, 52, 0)
-            char *validated = g_utf8_make_valid(item, -1);
-            g_variant_builder_add(&builder, "s", validated);
-            g_free(validated);
-#else
-            g_variant_builder_add(&builder, "s", item);
-#endif
+            char *utf8 = string_to_utf8(item);
+            g_variant_builder_add(&builder, "s", utf8);
+            g_free(utf8);
         }
 
         g_variant_dict_insert(dict, tag, "as", &builder);
