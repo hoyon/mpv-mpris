@@ -2,6 +2,7 @@
 #include <glib-unix.h>
 #include <mpv/client.h>
 #include <inttypes.h>
+#include <string.h>
 
 static const char *introspection_xml =
     "<node>\n"
