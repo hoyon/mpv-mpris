@@ -32,7 +32,7 @@ one of the following directories:
 The plugin can be used without installing by running mpv with the `--script` flag:
 
 ```
-mpv --script /path/to/mpris.so video.mp4
+mpv --script=/path/to/mpris.so video.mp4
 ```
 
 ## Notes
