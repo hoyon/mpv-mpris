@@ -73,6 +73,8 @@ typedef struct UserData
     GDBusConnection *connection;
     GDBusInterfaceInfo *root_interface_info;
     GDBusInterfaceInfo *player_interface_info;
+    guint root_interface_id;
+    guint player_interface_id;
     const char *status;
     const char *loop_status;
     GHashTable *changed_properties;
@@ -740,18 +742,20 @@ static void on_bus_acquired(GDBusConnection *connection,
     UserData *ud = user_data;
     ud->connection = connection;
 
-    g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
-                                      ud->root_interface_info,
-                                      &vtable_root,
-                                      user_data, NULL, &error);
+    ud->root_interface_id =
+        g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
+                                          ud->root_interface_info,
+                                          &vtable_root,
+                                          user_data, NULL, &error);
     if (error != NULL) {
         g_printerr("%s", error->message);
     }
 
-    g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
-                                      ud->player_interface_info,
-                                      &vtable_player,
-                                      user_data, NULL, &error);
+    ud->player_interface_id =
+        g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
+                                        ud->player_interface_info,
+                                        &vtable_player,
+                                        user_data, NULL, &error);
     if (error != NULL) {
         g_printerr("%s", error->message);
     }
@@ -903,6 +907,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     GError *error = NULL;
     GDBusNodeInfo *introspection_data = NULL;
     int pipe[2];
+    guint mpv_pipe_source;
+    guint timeout_source;
 
     loop = g_main_loop_new(NULL, FALSE);
 
@@ -947,12 +953,18 @@ int mpv_open_cplugin(mpv_handle *mpv)
     }
     fcntl(pipe[0], F_SETFL, O_NONBLOCK);
     mpv_set_wakeup_callback(mpv, wakeup_handler, &pipe[1]);
-    g_unix_fd_add(pipe[0], G_IO_IN, event_handler, &ud);
+    mpv_pipe_source = g_unix_fd_add(pipe[0], G_IO_IN, event_handler, &ud);
 
     // Emit any new property changes every 100ms
-    g_timeout_add(100, emit_property_changes, &ud);
+    timeout_source = g_timeout_add(100, emit_property_changes, &ud);
 
     g_main_loop_run(loop);
+
+    g_source_remove(mpv_pipe_source);
+    g_source_remove(timeout_source);
+
+    g_dbus_connection_unregister_object(ud.connection, ud.root_interface_id);
+    g_dbus_connection_unregister_object(ud.connection, ud.player_interface_id);
 
     g_bus_unown_name(ud.bus_id);
     g_main_loop_unref(loop);
