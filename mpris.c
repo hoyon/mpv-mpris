@@ -299,7 +299,12 @@ static GVariant *create_metadata(UserData *ud)
 
     // mpris:trackid
     mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &track);
-    temp_str = g_strdup_printf("/%" PRId64, track);
+    // playlist-pos = -1 if there is no playlist or current track
+    if (track == -1) {
+        temp_str = g_strdup("/noplaylist");
+    } else {
+        temp_str = g_strdup_printf("/%" PRId64, track);
+    }
     g_variant_dict_insert(&dict, "mpris:trackid", "o", temp_str);
     g_free(temp_str);
 
