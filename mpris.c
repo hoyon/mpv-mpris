@@ -936,7 +936,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                "org.mpris.MediaPlayer2.mpv",
-                               G_BUS_NAME_OWNER_FLAGS_NONE,
+                               G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE,
                                on_bus_acquired,
                                NULL,
                                on_name_lost,
