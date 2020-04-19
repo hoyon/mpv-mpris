@@ -92,11 +92,7 @@ static const char *LOOP_PLAYLIST = "Playlist";
 static gchar *string_to_utf8(gchar *maybe_utf8)
 {
     gchar *attempted_validation;
-#if GLIB_CHECK_VERSION(2, 52, 0)
     attempted_validation = g_utf8_make_valid(maybe_utf8, -1);
-#else
-    attempted_validation = g_strdup(maybe_utf8);
-#endif
 
     if (g_utf8_validate(attempted_validation, -1, NULL)) {
         return attempted_validation;
