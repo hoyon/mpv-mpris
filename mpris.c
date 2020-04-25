@@ -230,19 +230,10 @@ static const char art_files[][20] = {
 
 static const int art_files_count = sizeof(art_files) / sizeof(art_files[0]);
 
-static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
+static void try_put_local_art(mpv_handle *mpv, GVariantDict *dict, char *path)
 {
-    char *path;
-    gchar *dirname;
+    gchar *dirname = g_path_get_dirname(path);
     gboolean found = FALSE;
-
-    path = mpv_get_property_string(mpv, "path");
-
-    if (!path) {
-        return;
-    }
-
-    dirname = g_path_get_dirname(path);
 
     for (int i = 0; i < art_files_count; i++) {
         gchar *filename = g_build_filename(dirname, art_files[i], NULL);
@@ -262,6 +253,48 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
     }
 
     g_free(dirname);
+}
+
+static const char *youtube_url_pattern =
+    "^https?:\\/\\/(?:youtu.be\\/|(?:www\\.)?youtube\\.com\\/watch\\?v=)(?<id>[a-zA-Z1-9_-]*)\\??.*";
+
+static GRegex *youtube_url_regex;
+
+static void try_put_youtube_thumbnail(GVariantDict *dict, char *path)
+{
+    if (!youtube_url_regex) {
+        youtube_url_regex = g_regex_new(youtube_url_pattern, 0, 0, NULL);
+    }
+
+    GMatchInfo *match_info;
+    gboolean matched = g_regex_match(youtube_url_regex, path, 0, &match_info);
+
+    if (matched) {
+        gchar *video_id = g_match_info_fetch_named(match_info, "id");
+        gchar *thumbnail_url = g_strconcat("https://i1.ytimg.com/vi/",
+                                           video_id, "/hqdefault.jpg", NULL);
+        g_variant_dict_insert(dict, "mpris:artUrl", "s", thumbnail_url);
+        g_free(video_id);
+        g_free(thumbnail_url);
+    }
+
+    g_match_info_free(match_info);
+}
+
+static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
+{
+    char *path = mpv_get_property_string(mpv, "path");
+
+    if (!path) {
+        return;
+    }
+
+    if (g_str_has_prefix(path, "http")) {
+        try_put_youtube_thumbnail(dict, path);
+    } else {
+        try_put_local_art(mpv, dict, path);
+    }
+
     mpv_free(path);
 }
 
@@ -295,8 +328,8 @@ static GVariant *create_metadata(UserData *ud)
 
     // mpris:trackid
     mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &track);
-    // playlist-pos = -1 if there is no playlist or current track
-    if (track == -1) {
+    // playlist-pos < 0 if there is no playlist or current track
+    if (track < 0) {
         temp_str = g_strdup("/noplaylist");
     } else {
         temp_str = g_strdup_printf("/%" PRId64, track);
