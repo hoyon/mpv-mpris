@@ -860,7 +860,8 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
                 ud->loop_status = LOOP_NONE;
             }
         }
-
+        prop_name = "LoopStatus";
+        prop_value = g_variant_new_string(ud->loop_status);
     } else if (g_strcmp0(name, "loop-playlist") == 0) {
         char *status = *(char **)data;
         if (g_strcmp0(status, "inf") == 0) {
@@ -874,6 +875,8 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
                 ud->loop_status = LOOP_NONE;
             }
         }
+        prop_name = "LoopStatus";
+        prop_value = g_variant_new_string(ud->loop_status);
     }
 
     if (prop_name) {
