@@ -300,20 +300,30 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
 
 static void add_metadata_content_created(mpv_handle *mpv, GVariantDict *dict)
 {
-    char *date = mpv_get_property_string(mpv, "metadata/by-key/Date");
+    char *date_str = mpv_get_property_string(mpv, "metadata/by-key/Date");
 
-    if (!date) {
+    if (!date_str) {
         return;
     }
 
-    // Bail if date is not just the year
-    if (strlen(date) == 4) {
-        gchar *iso8601 = g_strdup_printf("%s-01-01T00:00:00Z", date);
-        g_variant_dict_insert(dict, "xesam:contentCreated", "s", iso8601);
-        g_free(iso8601);
+    GDate* date = g_date_new();
+    if (strlen(date_str) == 4) {
+        gint64 year = g_ascii_strtoll(date_str, NULL, 10);
+        if (year != 0) {
+            g_date_set_dmy(date, 1, 1, year);
+        }
+    } else {
+        g_date_set_parse(date, date_str);
     }
 
-    mpv_free(date);
+    if (g_date_valid(date)) {
+        gchar iso8601[20];
+        g_date_strftime(iso8601, 20, "%Y-%m-%dT00:00:00Z", date);
+        g_variant_dict_insert(dict, "xesam:contentCreated", "s", iso8601);
+    }
+
+    g_date_free(date);
+    mpv_free(date_str);
 }
 
 static GVariant *create_metadata(UserData *ud)
