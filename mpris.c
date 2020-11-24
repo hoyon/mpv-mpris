@@ -859,7 +859,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     } else if (g_strcmp0(name, "loop-file") == 0) {
         char *status = *(char **)data;
-        if (g_strcmp0(status, "yes") == 0) {
+        if (g_strcmp0(status, "yes") == 0 || g_strcmp0(status, "inf") == 0) {
             ud->loop_status = LOOP_TRACK;
         } else {
             char *playlist_status;
