@@ -1,0 +1,41 @@
+on: [push]
+
+name: build-release
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: mpris.so
+            asset_name: mpris.so-ubuntu-latest
+          - os: ubuntu-18.04
+            artifact_name: mpris.so
+            asset_name: mpris.so-ubuntu-18.04
+      fail-fast: false
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install libmpv-dev libglib2.0-dev
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          make
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "mpris.so built for Ubuntu 18.04 and Ubuntu-latest"
+
