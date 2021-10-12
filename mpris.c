@@ -859,12 +859,12 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     } else if (g_strcmp0(name, "loop-file") == 0) {
         char *status = *(char **)data;
-        if (g_strcmp0(status, "yes") == 0 || g_strcmp0(status, "inf") == 0) {
+        if (g_strcmp0(status, "no") == 1) {
             ud->loop_status = LOOP_TRACK;
         } else {
             char *playlist_status;
             mpv_get_property(ud->mpv, "loop-playlist", MPV_FORMAT_STRING, &playlist_status);
-            if (g_strcmp0(playlist_status, "inf") == 0) {
+            if (g_strcmp0(playlist_status, "no") == 1) {
                 ud->loop_status = LOOP_PLAYLIST;
             } else {
                 ud->loop_status = LOOP_NONE;
@@ -874,12 +874,12 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         prop_value = g_variant_new_string(ud->loop_status);
     } else if (g_strcmp0(name, "loop-playlist") == 0) {
         char *status = *(char **)data;
-        if (g_strcmp0(status, "inf") == 0) {
+        if (g_strcmp0(status, "no") == 1) {
             ud->loop_status = LOOP_PLAYLIST;
         } else {
             char *file_status;
             mpv_get_property(ud->mpv, "loop-file", MPV_FORMAT_STRING, &file_status);
-            if (g_strcmp0(file_status, "yes") == 0) {
+            if (g_strcmp0(file_status, "no") == 1) {
                 ud->loop_status = LOOP_TRACK;
             } else {
                 ud->loop_status = LOOP_NONE;
