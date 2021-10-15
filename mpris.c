@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <gio/gio.h>
 #include <glib-unix.h>
 #include <mpv/client.h>
@@ -956,6 +957,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     int pipe[2];
     guint mpv_pipe_source;
     guint timeout_source;
+    char session_name[64];
 
     loop = g_main_loop_new(NULL, FALSE);
 
@@ -976,8 +978,9 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
     ud.seek_expected = FALSE;
 
+    snprintf(session_name, sizeof(session_name), "org.mpris.MediaPlayer2.mpv.instance%d", getpid());
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
-                               "org.mpris.MediaPlayer2.mpv",
+                               session_name,
                                G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE,
                                on_bus_acquired,
                                NULL,
