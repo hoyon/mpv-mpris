@@ -25,4 +25,5 @@ jobs:
         with:
           name: mpris.so
           path: mpris.so
+          if-no-files-found: error
 
