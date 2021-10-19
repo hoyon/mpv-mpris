@@ -943,7 +943,7 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
 
 static void wakeup_handler(void *fd)
 {
-    write(*((int*)fd), "0", 1);
+    (void)!write(*((int*)fd), "0", 1);
 }
 
 // Plugin entry point
