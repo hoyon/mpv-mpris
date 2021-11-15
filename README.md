@@ -7,19 +7,19 @@ This plugin implements the MPRIS D-Bus interface and can be controlled using
 tools such as [playerctl](https://github.com/acrisci/playerctl) or through many
 open source desktop environments, such as GNOME and KDE.
 
-## Note
+## Compatibility
 
 This plugin requires mpv to be built with `--enable-cplugins` (default as of mpv 0.26)
 and to be built with Lua support (to enable loading scripts).
 
-## Load
+## Loading
 
-mpv will load the plugin from the scripts dirs:
+mpv will automatically load the plugin from the following directories:
 
 - `/etc/mpv/scripts`: for all users
 - `~/.config/mpv/scripts`: for current user
 
-mpv can load it from other locations:
+mpv can also be manually loaded from other directories:
 
 ```
 mpv --script=/path/to/mpris.so video.mp4
@@ -27,14 +27,14 @@ mpv --script=/path/to/mpris.so video.mp4
 
 ## Install
 
-Packages are available in a several [distributions](https://repology.org/project/mpv-mpris/versions).
+Packages are available for many [distributions](https://repology.org/project/mpv-mpris/versions).
 
-For 64-bit x86 Linux a pre-built version is [available](https://github.com/hoyon/mpv-mpris/releases)
-and can be copied into one of the mpv scripts dirs documented above.
+For 64-bit x86 Linux a pre-built version is [available here](https://github.com/hoyon/mpv-mpris/releases)
+and can be copied into one of the mpv scripts directories documented above.
 
-The self-built `mpris.so` file can be installed with `make install` and will
-be installed to the appropriate mpv scripts dir for your current user or
-to the mpv system wide scripts dir for all users when you install as root.
+A self-built `mpris.so` file can be installed with `make install` and will
+be installed to the appropriate mpv scripts directory for your current user
+or to the mpv system wide scripts directory for all users when you install as root.
 
 ## Build
 
@@ -55,4 +55,4 @@ Implemented:
 
 Not implemented:
 - `org.mpris.MediaPlayer2.TrackList`
- - `org.mpris.MediaPlayer2.Playlists`
+- `org.mpris.MediaPlayer2.Playlists`
