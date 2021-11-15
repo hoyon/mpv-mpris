@@ -497,7 +497,7 @@ static GDBusInterfaceVTable vtable_root = {
 
 static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
                                G_GNUC_UNUSED const char *sender,
-                               G_GNUC_UNUSED const char *object_path,
+                               G_GNUC_UNUSED const char *_object_path,
                                G_GNUC_UNUSED const char *interface_name,
                                const char *method_name,
                                G_GNUC_UNUSED GVariant *parameters,
@@ -804,7 +804,7 @@ static void on_bus_acquired(GDBusConnection *connection,
 }
 
 static void on_name_lost(GDBusConnection *connection,
-                         G_GNUC_UNUSED const char *name,
+                         G_GNUC_UNUSED const char *_name,
                          gpointer user_data)
 {
     if (connection) {
