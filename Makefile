@@ -20,4 +20,4 @@ install: mpris.so
 	$(INSTALL) -t $(SCRIPTS_DIR) mpris.so
 
 clean:
-	rm mpris.so
+	rm -f mpris.so
