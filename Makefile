@@ -14,13 +14,19 @@ PLUGINDIR := $(PREFIX)/lib/mpv-mpris
 SYS_SCRIPTS_DIR := /etc/mpv/scripts
 
 .PHONY: \
-  install install-system \
+  install install-user install-system \
   clean
 
 mpris.so: mpris.c
 	$(CC) mpris.c -o mpris.so $(CFLAGS) $(LDFLAGS) -shared -fPIC
 
-install: mpris.so
+ifneq ($(shell id -u),0)
+install: install-user
+else
+install: install-system
+endif
+
+install-user: mpris.so
 	$(MKDIR) -p $(SCRIPTS_DIR)
 	$(INSTALL) -t $(SCRIPTS_DIR) mpris.so
 
