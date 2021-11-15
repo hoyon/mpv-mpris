@@ -720,15 +720,13 @@ static gboolean emit_property_changes(gpointer data)
 {
     UserData *ud = (UserData*)data;
     GError *error = NULL;
-    GVariant *params;
-    GVariantBuilder *properties;
-    GVariantBuilder *invalidated;
     gpointer prop_name, prop_value;
     GHashTableIter iter;
 
     if (g_hash_table_size(ud->changed_properties) > 0) {
-        properties = g_variant_builder_new(G_VARIANT_TYPE("a{sv}"));
-        invalidated = g_variant_builder_new(G_VARIANT_TYPE("as"));
+        GVariant *params;
+        GVariantBuilder *properties = g_variant_builder_new(G_VARIANT_TYPE("a{sv}"));
+        GVariantBuilder *invalidated = g_variant_builder_new(G_VARIANT_TYPE("as"));
         g_hash_table_iter_init(&iter, ud->changed_properties);
         while (g_hash_table_iter_next(&iter, &prop_name, &prop_value)) {
             if (prop_value) {
@@ -901,7 +899,6 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpointer data)
 {
     UserData *ud = data;
-    mpv_event *event;
     gboolean has_event = TRUE;
 
     // Discard data in pipe
@@ -909,7 +906,7 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
     while (read(fd, unused, sizeof(unused)) > 0);
 
     while (has_event) {
-        event = mpv_wait_event(ud->mpv, 0);
+        mpv_event *event = mpv_wait_event(ud->mpv, 0);
         switch (event->event_id) {
         case MPV_EVENT_NONE:
             has_event = FALSE;
