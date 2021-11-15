@@ -777,7 +777,7 @@ static void emit_seeked_signal(UserData *ud)
     }
 }
 
-// Register dbus object and interfaces
+// Register D-Bus object and interfaces
 static void on_bus_acquired(GDBusConnection *connection,
                             G_GNUC_UNUSED const char *name,
                             gpointer user_data)
@@ -838,7 +838,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     } else if (g_strcmp0(name, "media-title") == 0 ||
                g_strcmp0(name, "duration") == 0) {
-        // Free exising metadata object
+        // Free existing metadata object
         if (ud->metadata) {
             g_variant_unref(ud->metadata);
         }

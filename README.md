@@ -5,7 +5,7 @@ standard media keys.
 
 This plugin implements the MPRIS D-Bus interface and can be controlled using
 tools such as [playerctl](https://github.com/acrisci/playerctl) or through many
-Linux DEs, such as Gnome and KDE.
+Linux DEs, such as GNOME and KDE.
 
 ## Build
 
