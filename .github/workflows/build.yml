@@ -1,3 +1,4 @@
+---
 name: build
 
 on: [push, pull_request]
@@ -26,4 +27,3 @@ jobs:
           name: mpris.so
           path: mpris.so
           if-no-files-found: error
-
