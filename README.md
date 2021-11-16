@@ -19,7 +19,7 @@ mpv will automatically load the plugin from the following directories:
 - `/etc/mpv/scripts`: for all users
 - `~/.config/mpv/scripts`: for current user
 
-mpv can also be manually loaded from other directories:
+mpv can also manually load the plugin from other directories:
 
 ```
 mpv --script=/path/to/mpris.so video.mp4
