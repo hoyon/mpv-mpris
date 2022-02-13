@@ -1,0 +1,105 @@
+#!/bin/bash
+
+set -e
+
+
+exec {BASH_XTRACEFD}>&1
+echo "$0" "$@"
+set -x
+
+
+test="$(basename "$1")"
+
+
+if [ -z "${MPV_MPRIS_TEST_PLUGIN+set}" ] ; then
+	export MPV_MPRIS_TEST_PLUGIN=../mpris.so
+fi
+
+if [ -z "$MPV_MPRIS_TEST_PLAY" ] ; then
+	export MPV_MPRIS_TEST_PLAY=/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga
+fi
+
+if [ -z "$MPV_MPRIS_TEST_MPV_IPC" ] ; then
+	export MPV_MPRIS_TEST_MPV_IPC=.
+fi
+
+if [ -z "$MPV_MPRIS_TEST_LOG" ] ; then
+	export MPV_MPRIS_TEST_LOG=.
+fi
+
+if [ -z "$MPV_MPRIS_TEST_DBUS" ] ; then
+	MPV_MPRIS_TEST_DBUS=.
+fi
+
+if [ -z "$MPV_MPRIS_TEST_XAUTH" ] ; then
+	MPV_MPRIS_TEST_XAUTH=.
+fi
+
+if [ -z "$MPV_MPRIS_TEST_TMP" ] ; then
+	MPV_MPRIS_TEST_TMP=.
+fi
+
+if [ -n "$MPV_MPRIS_TEST_PLUGIN" ] ; then
+	if [ ! -f "$MPV_MPRIS_TEST_PLUGIN" ] ||
+	   [ ! -r "$MPV_MPRIS_TEST_PLUGIN" ] ||
+	   [ ! -x "$MPV_MPRIS_TEST_PLUGIN" ] ; then
+		echo "$MPV_MPRIS_TEST_PLUGIN not an existing file with rx perms" >&2
+		exit 1
+	fi
+fi
+
+if [ ! -f "$MPV_MPRIS_TEST_PLAY" ] ||
+   [ ! -r "$MPV_MPRIS_TEST_PLAY" ] ; then
+	echo "$MPV_MPRIS_TEST_PLAY not an existing readable file" >&2
+	exit 1
+fi
+
+writable_dir () {
+	if [ ! -d "$1" ] ||
+	   [ ! -r "$1" ] ||
+	   [ ! -w "$1" ] ||
+	   [ ! -x "$1" ] ; then
+		echo "$1 not an existing writable directory" >&2
+		exit 1
+	fi
+}
+
+writable_dir "$MPV_MPRIS_TEST_MPV_IPC"
+writable_dir "$MPV_MPRIS_TEST_DBUS"
+writable_dir "$MPV_MPRIS_TEST_XAUTH"
+writable_dir "$MPV_MPRIS_TEST_LOG"
+writable_dir "$MPV_MPRIS_TEST_TMP"
+
+
+# These are not used outside this script so unexport them
+export -n \
+	MPV_MPRIS_TEST_DBUS \
+	MPV_MPRIS_TEST_XAUTH \
+	MPV_MPRIS_TEST_TMP
+
+
+# On some distros --auto-servernum doesn't work in parallel scenarios,
+# but --auto-display is offered and does work in parallel scenarios.
+# On other distros --auto-servernum *does* work in parallel scenarios,
+# but --auto-display is not offered so cannot work at all.
+# Detect which xvfb-run we have and use the right option.
+if xvfb-run --help | grep -- --auto-display ; then
+	xvfb_auto=--auto-display
+else
+	xvfb_auto=--auto-servernum
+fi
+
+
+# xvfb-run -f is --auth-file, but that does not work on some distros:
+# https://bugs.archlinux.org/task/73865
+exec \
+env \
+MPV_MPRIS_TEST_NAME="$test" \
+XDG_RUNTIME_DIR="$MPV_MPRIS_TEST_DBUS" \
+TEMPDIR="$MPV_MPRIS_TEST_TMP" \
+TMPDIR="$MPV_MPRIS_TEST_TMP" \
+TEMP="$MPV_MPRIS_TEST_TMP" \
+TMP="$MPV_MPRIS_TEST_TMP" \
+dbus-run-session -- \
+xvfb-run "$xvfb_auto" --error-file "$MPV_MPRIS_TEST_LOG/$test.xvfb.log" -f "$MPV_MPRIS_TEST_XAUTH/$test.Xauthority" \
+"$@"

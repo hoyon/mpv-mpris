@@ -1,2 +1,11 @@
 compile_commands.json
 mpris.so
+*.mpv.ipc.input.json
+*.mpv.ipc.output.json
+*.mpv.ipc
+*.mpv.log
+*.xvfb.log
+*.Xauthority
+*.socat.log
+*.exit-code.log
+*.stderr.log

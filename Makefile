@@ -18,6 +18,7 @@ SYS_SCRIPTS_DIR := /etc/mpv/scripts
 .PHONY: \
   install install-user install-system \
   uninstall uninstall-user uninstall-system \
+  test \
   clean
 
 mpris.so: mpris.c
@@ -51,5 +52,9 @@ uninstall-system:
 	$(RM) -f $(DESTDIR)$(PLUGINDIR)/mpris.so
 	$(RMDIR) -p $(DESTDIR)$(PLUGINDIR)
 
+test: mpris.so
+	$(MAKE) -C test
+
 clean:
 	rm -f mpris.so
+	$(MAKE) -C test clean

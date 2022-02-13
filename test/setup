@@ -1,0 +1,94 @@
+set -e
+
+
+exec {BASH_XTRACEFD}>&1
+echo "$0" "$@"
+set -x
+
+
+test -n "$MPV_MPRIS_TEST_NAME" ||
+exec "./env" "$0" "$@"
+
+
+test="$(basename "$0")"
+
+
+if [ "$test" = setup ] ; then
+	echo "This setup script should be sourced, not executed" >&2
+	exit 1
+fi
+
+
+input_json="$MPV_MPRIS_TEST_MPV_IPC/$test.mpv.ipc.input.json"
+output_json="$MPV_MPRIS_TEST_MPV_IPC/$test.mpv.ipc.output.json"
+ipc="$MPV_MPRIS_TEST_MPV_IPC/$test.mpv.ipc"
+log_prefix="$MPV_MPRIS_TEST_LOG/$test"
+mpv_log="$log_prefix.mpv.log"
+socat_log="$log_prefix.socat.log"
+file="$MPV_MPRIS_TEST_PLAY"
+
+
+prop () {
+	jq --null-input --compact-output --arg prop "$1" '{command: ["get_property", $prop]}'
+}
+
+val () {
+	jq --exit-status --null-input "inputs // {} | try (.data == $1 and .error == \"success\") catch false"
+}
+
+check () {
+	prop "$1" > "$input_json"
+	cat "$input_json"
+	rm -f "$socat_log"
+	# Pass the input JSON to socat and save the output JSON, also redirect
+	# socat errors to a file so we can check afterward if there are errors.
+	< "$input_json" socat -lf"$socat_log" - "$ipc" > "$output_json"
+	cat "$socat_log" >&2
+	test ! -s "$socat_log"
+	cat "$output_json"
+	test -s "$output_json"
+	< "$output_json" val "$2"
+}
+
+status () {
+	playerctl status |
+	grep "^$1$"
+}
+
+
+params=()
+if [ -n "$pause" ] && [ "$pause" -ne 0 ] 2> /dev/null ; then
+	params+=("--pause")
+fi
+
+if [ -n "$MPV_MPRIS_TEST_PLUGIN" ] ; then
+	params+=("--load-scripts=no" "--script=$MPV_MPRIS_TEST_PLUGIN")
+fi
+
+
+unset \
+	MPV_MPRIS_TEST_PLUGIN \
+	MPV_MPRIS_TEST_PLAY \
+	MPV_MPRIS_TEST_MPV_IPC \
+	MPV_MPRIS_TEST_LOG
+
+
+echo "DISPLAY=$DISPLAY"
+echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+
+
+mpv \
+"${params[@]}" \
+--vo=null --ao=null \
+--msg-time \
+--msg-module \
+--msg-level=cplayer=trace,mpris=trace \
+--log-file="$mpv_log" \
+--input-ipc-server="$ipc" \
+"$file" \
+2> >(awk '/statusline.*Paused/{print>"/dev/stdout";next} 1')>&2 \
+&
+
+
+# Wait for mpv to start up and load the file
+sleep 2

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+. ./setup
+
+status Playing
+check pause false
+
+playerctl pause
+sleep 1
+
+status Paused
+check pause true
+
+playerctl play
+sleep 1
+
+wait %1
