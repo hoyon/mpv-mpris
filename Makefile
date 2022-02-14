@@ -21,7 +21,7 @@ SYS_SCRIPTS_DIR := /etc/mpv/scripts
   clean
 
 mpris.so: mpris.c
-	$(CC) mpris.c -o mpris.so $(CFLAGS) $(LDFLAGS) -shared -fPIC
+	$(CC) mpris.c -o mpris.so $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -shared -fPIC
 
 ifneq ($(shell id -u),0)
 install: install-user
