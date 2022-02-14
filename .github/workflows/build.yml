@@ -27,3 +27,11 @@ jobs:
           name: mpris.so
           path: mpris.so
           if-no-files-found: error
+
+      - name: Prepare for test
+        run: |
+          sudo apt install mpv playerctl sound-theme-freedesktop bash dbus xvfb xauth jq socat gawk
+
+      - name: Run tests
+        run: |
+          make test
