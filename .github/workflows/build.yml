@@ -35,3 +35,19 @@ jobs:
       - name: Run tests
         run: |
           make test
+
+      - name: Check git files unmodified
+        run: |
+          git diff --exit-code HEAD
+
+      - name: Check .gitignore matches generated files
+        run: |
+          ! git ls-files --others --exclude-standard | grep .
+
+      - name: Cleanup generated files
+        run: |
+          make clean
+
+      - name: Check cleanup removed generated files
+        run: |
+          ! git ls-files --others | grep .
