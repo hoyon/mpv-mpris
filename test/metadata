@@ -1,0 +1,12 @@
+#!/bin/bash
+
+. ./setup
+
+test "$(playerctl metadata xesam:url)" = "file://$file"
+
+# Wait for mpv to parse the title from the file
+sleep 2
+
+test "$(playerctl metadata xesam:title)" != ""
+
+wait %1

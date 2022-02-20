@@ -1,0 +1,42 @@
+#!/bin/bash
+
+pause=1
+
+. ./setup
+
+status Paused
+check pause true
+
+playerctl stop
+sleep 2
+
+ret_ipc=0
+prop pause > "$input_json"
+cat "$input_json"
+rm -f "$socat_log"
+# Since mpv should be stopped by now and the IPC socket closed by mpv,
+# an error from socat is expected, so redirect it to a log file so that
+# it doesn't hit stderr, as some test systems check that stderr is empty.
+< "$input_json" socat -lf"$socat_log" - "$ipc" > "$output_json" ||
+ret_ipc=$?
+cat "$output_json"
+test ! -s "$output_json"
+
+if [ $ret_ipc -eq 0 ] ; then
+	echo 'socat succeeded but it should have failed!' >&2
+	echo 'probably mpv did not stop when asked to!' >&2
+fi
+
+if [ ! -s "$socat_log" ] ; then
+	echo 'socat log should contain an error!' >&2
+else
+	echo 'socat log contains these *expected* errors:'
+	cat "$socat_log"
+fi
+
+playerctl status 2>&1 > /dev/null |
+grep '^No players found$'
+
+if [ $ret_ipc -eq 0 ] || [ ! -s "$socat_log" ] ; then
+	exit 1
+fi
