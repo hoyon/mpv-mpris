@@ -775,6 +775,19 @@ static void emit_seeked_signal(UserData *ud)
     }
 }
 
+static void set_stopped_status(UserData *ud)
+{
+  const char *prop_name = "PlaybackStatus";
+  GVariant *prop_value = g_variant_new_string(STATUS_STOPPED);
+
+  ud->status = STATUS_STOPPED;
+
+  g_hash_table_insert(ud->changed_properties,
+                      (gpointer)prop_name, prop_value);
+
+  emit_property_changes(ud);
+}
+
 // Register D-Bus object and interfaces
 static void on_bus_acquired(GDBusConnection *connection,
                             G_GNUC_UNUSED const char *name,
@@ -912,10 +925,11 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
             has_event = FALSE;
             break;
         case MPV_EVENT_SHUTDOWN:
+            set_stopped_status(ud);
             g_main_loop_quit(ud->loop);
             break;
         case MPV_EVENT_IDLE:
-            ud->status = STATUS_STOPPED;
+            set_stopped_status(ud);
             break;
         case MPV_EVENT_PROPERTY_CHANGE: {
             mpv_event_property *prop_event = (mpv_event_property*)event->data;
