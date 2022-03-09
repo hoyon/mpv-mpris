@@ -28,7 +28,7 @@ if [ $ret_ipc -eq 0 ] ; then
 fi
 
 playerctl status 2>&1 > /dev/null |
-grep '^No players found$'
+grep "^No players \(were \)\?found$"
 
 if [ $ret_ipc -eq 0 ] ; then
 	exit 1
