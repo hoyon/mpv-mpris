@@ -77,6 +77,9 @@ echo "DISPLAY=$DISPLAY"
 echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
 
 
+rm -f "$ipc" "$mpv_log" "$socat_log"
+
+
 mpv \
 "${params[@]}" \
 --vo=null --ao=null \
