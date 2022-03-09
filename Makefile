@@ -15,6 +15,8 @@ PREFIX := /usr/local
 PLUGINDIR := $(PREFIX)/lib/mpv-mpris
 SYS_SCRIPTS_DIR := /etc/mpv/scripts
 
+UID ?= $(shell id -u)
+
 .PHONY: \
   install install-user install-system \
   uninstall uninstall-user uninstall-system \
@@ -24,7 +26,7 @@ SYS_SCRIPTS_DIR := /etc/mpv/scripts
 mpris.so: mpris.c
 	$(CC) mpris.c -o mpris.so $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -shared -fPIC
 
-ifneq ($(shell id -u),0)
+ifneq ($(UID),0)
 install: install-user
 uninstall: uninstall-user
 else
