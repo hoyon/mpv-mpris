@@ -50,6 +50,23 @@ check () {
 	< "$output_json" val "$2"
 }
 
+wait_for () {
+        timeout=0
+        until "$@" ; do
+                if [ "$timeout" -eq 60 ];then
+                        printf "timed out after ${timeout}s waiting for this command to succeed:\n%s" "$*" >&2
+                        exit 1
+                fi
+                sleep 1
+                timeout=$((timeout+1))
+        done
+}
+
+playerctl_list_all_is_mpv () {
+	player="$(playerctl --list-all 2>&1)"
+	test "$player" = mpv
+}
+
 status () {
 	playerctl status |
 	grep "^$1$"
@@ -94,4 +111,6 @@ mpv \
 
 
 # Wait for mpv to start up and load the file
+wait_for test -S "$ipc"
+wait_for playerctl_list_all_is_mpv
 sleep 2
