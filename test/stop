@@ -31,9 +31,16 @@ if [ $ret_ipc -eq 0 ] ; then
 	echo 'probably mpv did not stop when asked to!' >&2
 fi
 
+if [ ! -s "$socat_log" ] ; then
+	echo 'socat log should contain an error!' >&2
+else
+	echo 'socat log contains these *expected* errors:'
+	cat "$socat_log"
+fi
+
 playerctl status 2>&1 > /dev/null |
 grep "^No players \(were \)\?found$"
 
-if [ $ret_ipc -eq 0 ] ; then
+if [ $ret_ipc -eq 0 ] || [ ! -s "$socat_log" ] ; then
 	exit 1
 fi
