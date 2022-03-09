@@ -90,6 +90,9 @@ else
 fi
 
 
+rm -f "$MPV_MPRIS_TEST_LOG/$test.xvfb.log" "$MPV_MPRIS_TEST_XAUTH/$test.Xauthority"
+
+
 # xvfb-run -f is --auth-file, but that does not work on some distros:
 # https://bugs.archlinux.org/task/73865
 exec \
