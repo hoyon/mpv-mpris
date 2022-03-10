@@ -53,6 +53,7 @@ Test requirements:
  - mpv (for loading the mpv mpris plugin)
  - mpv-mpris plugin (installed or self-built)
  - playerctl (for sending MPRIS commands via D-Bus)
+ - dbus-send (from dbus, for sending MPRIS commands via D-Bus)
  - sound-theme-freedesktop (for a file to play in mpv)
  - bash (for running the test scripts)
  - dbus-run-session (from dbus, for simulating a D-Bus session)
