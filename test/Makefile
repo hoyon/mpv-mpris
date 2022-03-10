@@ -5,7 +5,8 @@ tests = \
 	pause \
 	play \
 	play-pause \
-	stop
+	stop \
+	quit
 
 .PHONY: \
 	test \

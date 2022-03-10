@@ -55,6 +55,12 @@ status () {
 	grep "^$1$"
 }
 
+mpris_quit () {
+	# playerctl does not yet support the MPRIS Quit API
+	# https://github.com/altdesktop/playerctl/issues/171
+	dbus-send --print-reply --dest=org.mpris.MediaPlayer2.mpv /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Quit
+}
+
 
 params=()
 if [ -n "$pause" ] && [ "$pause" -ne 0 ] 2> /dev/null ; then
