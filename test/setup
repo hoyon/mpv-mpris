@@ -42,7 +42,7 @@ check () {
 	rm -f "$socat_log"
 	# Pass the input JSON to socat and save the output JSON, also redirect
 	# socat errors to a file so we can check afterward if there are errors.
-	< "$input_json" socat -lf"$socat_log" - "$ipc" > "$output_json"
+	< "$input_json" socat -lf"$socat_log" - "UNIX-CONNECT:$ipc" > "$output_json"
 	cat "$socat_log" >&2
 	test ! -s "$socat_log"
 	cat "$output_json"

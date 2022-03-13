@@ -21,7 +21,7 @@ rm -f "$socat_log"
 # Since mpv should be stopped by now and the IPC socket closed by mpv,
 # an error from socat is expected, so redirect it to a log file so that
 # it doesn't hit stderr, as some test systems check that stderr is empty.
-< "$input_json" socat -lf"$socat_log" - "$ipc" > "$output_json" ||
+< "$input_json" socat -lf"$socat_log" - "UNIX-CONNECT:$ipc" > "$output_json" ||
 ret_ipc=$?
 cat "$output_json"
 test ! -s "$output_json"
