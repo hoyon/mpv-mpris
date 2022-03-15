@@ -71,6 +71,10 @@ writable_dir "$MPV_MPRIS_TEST_LOG"
 writable_dir "$MPV_MPRIS_TEST_TMP"
 
 
+MPV_MPRIS_TEST_DBUS="$MPV_MPRIS_TEST_DBUS/dbus"
+mkdir -p -m 0700 "$MPV_MPRIS_TEST_DBUS"
+
+
 # These are not used outside this script so unexport them
 export -n \
 	MPV_MPRIS_TEST_DBUS \
