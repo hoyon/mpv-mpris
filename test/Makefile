@@ -27,4 +27,4 @@ clean:
 	  *.socat.log \
 	  *.exit-code.log \
 	  *.stderr.log
-	rm -rf dbus-1
+	rm -rf dbus
