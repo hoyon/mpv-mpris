@@ -962,7 +962,7 @@ static void wakeup_handler(void *fd)
 int mpv_open_cplugin(mpv_handle *mpv)
 {
     GMainLoop *loop;
-    UserData ud = {};
+    UserData ud = {0};
     GError *error = NULL;
     GDBusNodeInfo *introspection_data = NULL;
     int pipe[2];
