@@ -360,7 +360,7 @@ static GVariant *create_metadata(UserData *ud)
     add_metadata_item_string(ud->mpv, &dict, "metadata/by-key/Album", "xesam:album");
     add_metadata_item_string(ud->mpv, &dict, "metadata/by-key/Genre", "xesam:genre");
 
-    add_metadata_item_string(ud->mpv, &dict, "metadata/by-key/uploader", "xesam:artist");
+    add_metadata_item_string_list(ud->mpv, &dict, "metadata/by-key/uploader", "xesam:artist");
     add_metadata_item_string_list(ud->mpv, &dict, "metadata/by-key/Artist", "xesam:artist");
     add_metadata_item_string_list(ud->mpv, &dict, "metadata/by-key/Album_Artist", "xesam:albumArtist");
     add_metadata_item_string_list(ud->mpv, &dict, "metadata/by-key/Composer", "xesam:composer");
