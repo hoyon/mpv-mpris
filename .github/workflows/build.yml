@@ -15,14 +15,14 @@ jobs:
           sudo apt install libmpv-dev libglib2.0-dev
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Build
         run: |
           make
 
       - name: Upload binary
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: mpris.so
           path: mpris.so
