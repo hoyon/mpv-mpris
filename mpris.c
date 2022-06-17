@@ -903,7 +903,6 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     } else if (g_strcmp0(name, "fullscreen") == 0) {
         gboolean *status = data;
-        g_print("fullscreen! %d \n", *status);
         prop_name = "Fullscreen";
         prop_value = g_variant_new_boolean(*status);
     }
