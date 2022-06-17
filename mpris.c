@@ -884,6 +884,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
+
     } else if (g_strcmp0(name, "loop-playlist") == 0) {
         char *status = *(char **)data;
         if (g_strcmp0(status, "no") != 0) {
@@ -899,6 +900,12 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
+
+    } else if (g_strcmp0(name, "fullscreen") == 0) {
+        gboolean *status = data;
+        g_print("fullscreen! %d \n", *status);
+        prop_name = "Fullscreen";
+        prop_value = g_variant_new_boolean(*status);
     }
 
     if (prop_name) {
@@ -1004,6 +1011,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "loop-file", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "loop-playlist", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
+    mpv_observe_property(mpv, 0, "fullscreen", MPV_FORMAT_FLAG);
 
     // Run callback whenever there are events
     g_unix_open_pipe(pipe, 0, &error);
