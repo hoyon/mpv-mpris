@@ -63,8 +63,10 @@ wait_for () {
 }
 
 playerctl_list_all_is_mpv () {
-	player="$(playerctl --list-all 2>&1)"
-	test "$player" = mpv
+	ret=0 ; player="$(playerctl --list-all 2> /dev/null)" || ret=$?
+	if [ $ret -ne 0 ] || [ "$player" != mpv ] ; then
+		playerctl --list-all ; return $((ret?ret:1))
+	fi
 }
 
 status () {
