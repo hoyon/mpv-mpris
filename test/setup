@@ -107,6 +107,7 @@ rm -f "$ipc" "$mpv_log" "$socat_log"
 
 mpv \
 "${params[@]}" \
+--no-config \
 --vo=null --ao=null \
 --msg-time \
 --msg-module \
