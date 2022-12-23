@@ -900,6 +900,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
             } else {
                 ud->loop_status = LOOP_NONE;
             }
+            mpv_free(playlist_status);
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
@@ -916,6 +917,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
             } else {
                 ud->loop_status = LOOP_NONE;
             }
+            mpv_free(file_status);
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
