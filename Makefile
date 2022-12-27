@@ -6,8 +6,9 @@ RMDIR := rmdir
 LN := ln
 RM := rm
 
-CFLAGS += -std=c99 -Wall -Wextra -O2 -pedantic $(shell $(PKG_CONFIG) --cflags gio-2.0 gio-unix-2.0 glib-2.0 mpv)
-LDFLAGS += $(shell $(PKG_CONFIG) --libs gio-2.0 gio-unix-2.0 glib-2.0)
+# Base flags, environment CFLAGS / LDFLAGS can be appended.
+BASE_CFLAGS = -std=c99 -Wall -Wextra -O2 -pedantic $(shell $(PKG_CONFIG) --cflags gio-2.0 gio-unix-2.0 glib-2.0 mpv)
+BASE_LDFLAGS = $(shell $(PKG_CONFIG) --libs gio-2.0 gio-unix-2.0 glib-2.0)
 
 SCRIPTS_DIR := $(HOME)/.config/mpv/scripts
 
@@ -24,7 +25,7 @@ UID ?= $(shell id -u)
   clean
 
 mpris.so: mpris.c
-	$(CC) mpris.c -o mpris.so $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -shared -fPIC
+	$(CC) mpris.c -o mpris.so $(BASE_CFLAGS) $(CFLAGS) $(CPPFLAGS) $(BASE_LDFLAGS) $(LDFLAGS) -shared -fPIC
 
 ifneq ($(UID),0)
 install: install-user
