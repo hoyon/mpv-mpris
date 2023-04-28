@@ -80,6 +80,8 @@ typedef struct UserData
     GHashTable *changed_properties;
     GVariant *metadata;
     gboolean seek_expected;
+    gboolean idle;
+    gboolean paused;
 } UserData;
 
 static const char *STATUS_PLAYING = "Playing";
@@ -795,6 +797,18 @@ static void emit_seeked_signal(UserData *ud)
     }
 }
 
+static GVariant * set_playback_status(UserData *ud)
+{
+    if (ud->idle) {
+        ud->status = STATUS_STOPPED;
+    } else if (ud->paused) {
+        ud->status = STATUS_PAUSED;
+    } else {
+        ud->status = STATUS_PLAYING;
+    }
+    return g_variant_new_string(ud->status);
+}
+
 static void set_stopped_status(UserData *ud)
 {
   const char *prop_name = "PlaybackStatus";
@@ -858,14 +872,14 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
     const char *prop_name = NULL;
     GVariant *prop_value = NULL;
     if (g_strcmp0(name, "pause") == 0) {
-        int *paused = data;
-        if (*paused) {
-            ud->status = STATUS_PAUSED;
-        } else {
-            ud->status = STATUS_PLAYING;
-        }
+        ud->paused = *(int*)data;
         prop_name = "PlaybackStatus";
-        prop_value = g_variant_new_string(ud->status);
+        prop_value = set_playback_status(ud);
+
+    } else if (g_strcmp0(name, "idle-active") == 0) {
+        ud->idle = *(int*)data;
+        prop_name = "PlaybackStatus";
+        prop_value = set_playback_status(ud);
 
     } else if (g_strcmp0(name, "media-title") == 0 ||
                g_strcmp0(name, "duration") == 0) {
@@ -926,6 +940,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         gboolean *status = data;
         prop_name = "Fullscreen";
         prop_value = g_variant_new_boolean(*status);
+
     }
 
     if (prop_name) {
@@ -955,9 +970,6 @@ static gboolean event_handler(int fd, G_GNUC_UNUSED GIOCondition condition, gpoi
         case MPV_EVENT_SHUTDOWN:
             set_stopped_status(ud);
             g_main_loop_quit(ud->loop);
-            break;
-        case MPV_EVENT_IDLE:
-            set_stopped_status(ud);
             break;
         case MPV_EVENT_PROPERTY_CHANGE: {
             mpv_event_property *prop_event = (mpv_event_property*)event->data;
@@ -1016,6 +1028,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.loop_status = LOOP_NONE;
     ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
     ud.seek_expected = FALSE;
+    ud.idle = FALSE;
+    ud.paused = FALSE;
 
     g_main_context_push_thread_default(ctx);
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
@@ -1029,6 +1043,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     // Receive event for property changes
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);
+    mpv_observe_property(mpv, 0, "idle-active", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "media-title", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "speed", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "volume", MPV_FORMAT_DOUBLE);
