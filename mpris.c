@@ -1,8 +1,11 @@
 #include <gio/gio.h>
 #include <glib-unix.h>
 #include <mpv/client.h>
+#include <libavformat/avformat.h>
 #include <inttypes.h>
 #include <string.h>
+
+
 
 static const char *introspection_xml =
     "<node>\n"
@@ -283,6 +286,38 @@ static void try_put_youtube_thumbnail(GVariantDict *dict, char *path)
     g_match_info_free(match_info);
 }
 
+static void try_put_embedded_art(GVariantDict *dict, char *path)
+{
+    AVFormatContext *formatContext = NULL;
+    if (avformat_open_input(&formatContext, path, NULL, NULL) < 0) {
+        g_printerr("failed to open input file");
+        return;
+    }
+
+    if (avformat_find_stream_info(formatContext, NULL) < 0) {
+        g_printerr("failed to find stream info");
+        return;
+    }
+
+    AVPacket packet = {.size = 0};
+    for (unsigned int i = 0; i < formatContext->nb_streams; i++) {
+        if (formatContext->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
+            packet = formatContext->streams[i]->attached_pic;
+        }
+    }
+    if (!packet.size) {
+        return;
+    }
+
+    gchar *data = g_base64_encode(packet.data, packet.size);
+    gchar *img = g_strconcat("data:image/jpeg;base64,", data, NULL);
+    g_variant_dict_insert(dict, "mpris:artUrl", "s", img);
+
+    g_free(data);
+    g_free(img);
+    avformat_close_input(&formatContext);
+}
+
 static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
 {
     char *path = mpv_get_property_string(mpv, "path");
@@ -294,6 +329,7 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
     if (g_str_has_prefix(path, "http")) {
         try_put_youtube_thumbnail(dict, path);
     } else {
+        try_put_embedded_art(dict, path);
         try_put_local_art(mpv, dict, path);
     }
 

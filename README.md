@@ -44,6 +44,7 @@ Build requirements:
  - mpv development files
  - glib development files
  - gio development files
+ - libavformat development files
 
 Building should be as simple as running `make` in the source code directory.
 
