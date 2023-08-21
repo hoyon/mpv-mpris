@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install libmpv-dev libglib2.0-dev
+          sudo apt install libmpv-dev libglib2.0-dev libavformat-dev
 
       - name: Checkout
         uses: actions/checkout@v3
