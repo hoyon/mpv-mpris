@@ -235,18 +235,16 @@ static const char art_files[][20] = {
 
 static const int art_files_count = sizeof(art_files) / sizeof(art_files[0]);
 
-static void try_put_local_art(mpv_handle *mpv, GVariantDict *dict, char *path)
+static gchar* try_get_local_art(mpv_handle *mpv, char *path)
 {
-    gchar *dirname = g_path_get_dirname(path);
+    gchar *dirname = g_path_get_dirname(path), *out = NULL;
     gboolean found = FALSE;
 
     for (int i = 0; i < art_files_count; i++) {
         gchar *filename = g_build_filename(dirname, art_files[i], NULL);
 
         if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
-            gchar *uri = path_to_uri(mpv, filename);
-            g_variant_dict_insert(dict, "mpris:artUrl", "s", uri);
-            g_free(uri);
+            out = path_to_uri(mpv, filename);
             found = TRUE;
         }
 
@@ -258,6 +256,7 @@ static void try_put_local_art(mpv_handle *mpv, GVariantDict *dict, char *path)
     }
 
     g_free(dirname);
+    return out;
 }
 
 static const char *youtube_url_pattern =
@@ -265,8 +264,9 @@ static const char *youtube_url_pattern =
 
 static GRegex *youtube_url_regex;
 
-static void try_put_youtube_thumbnail(GVariantDict *dict, char *path)
+static gchar* try_get_youtube_thumbnail(char *path)
 {
+    gchar *out = NULL;
     if (!youtube_url_regex) {
         youtube_url_regex = g_regex_new(youtube_url_pattern, 0, 0, NULL);
     }
@@ -276,48 +276,55 @@ static void try_put_youtube_thumbnail(GVariantDict *dict, char *path)
 
     if (matched) {
         gchar *video_id = g_match_info_fetch_named(match_info, "id");
-        gchar *thumbnail_url = g_strconcat("https://i1.ytimg.com/vi/",
+        out = g_strconcat("https://i1.ytimg.com/vi/",
                                            video_id, "/hqdefault.jpg", NULL);
-        g_variant_dict_insert(dict, "mpris:artUrl", "s", thumbnail_url);
         g_free(video_id);
-        g_free(thumbnail_url);
     }
 
     g_match_info_free(match_info);
+    return out;
 }
 
-static void extract_embedded_art(GVariantDict *dict, AVFormatContext *formatContext) {
-    if (avformat_find_stream_info(formatContext, NULL) < 0) {
+static gchar* extract_embedded_art(AVFormatContext *context) {
+    if (avformat_find_stream_info(context, NULL) < 0) {
         g_printerr("failed to find stream info");
-        return;
+        return NULL;
     }
 
     AVPacket *packet = NULL;
-    for (unsigned int i = 0; i < formatContext->nb_streams; i++) {
-        if (formatContext->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
-            packet = &formatContext->streams[i]->attached_pic;
+    for (unsigned int i = 0; i < context->nb_streams; i++) {
+        if (context->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
+            packet = &context->streams[i]->attached_pic;
         }
     }
     if (!packet) {
-        return;
+        return NULL;
     }
 
     gchar *data = g_base64_encode(packet->data, packet->size);
     gchar *img = g_strconcat("data:image/jpeg;base64,", data, NULL);
-    g_variant_dict_insert(dict, "mpris:artUrl", "s", img);
 
     g_free(data);
-    g_free(img);
+    return img;
 }
 
-static void try_put_embedded_art(GVariantDict *dict, char *path)
+static gchar* try_get_embedded_art(char *path)
 {
-    AVFormatContext *formatContext = NULL;
-    if (!avformat_open_input(&formatContext, path, NULL, NULL)) {
-        extract_embedded_art(dict, formatContext);
-        avformat_close_input(&formatContext);
+    gchar *out = NULL;
+    AVFormatContext *context = NULL;
+    if (!avformat_open_input(&context, path, NULL, NULL)) {
+        out = extract_embedded_art(context);
+        avformat_close_input(&context);
     }
+
+    return out;
 }
+
+// cached last file path, owned by mpv
+static char *cached_path = NULL;
+
+// cached last artwork url, owned by glib
+static gchar *cached_art_url = NULL;
 
 static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
 {
@@ -327,14 +334,27 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
         return;
     }
 
-    if (g_str_has_prefix(path, "http")) {
-        try_put_youtube_thumbnail(dict, path);
+    // mpv may call create_metadata multiple times, so cache to save CPU
+    if (!cached_path || strcmp(path, cached_path)) {
+        mpv_free(cached_path);
+        g_free(cached_art_url);
+        cached_path = path;
+
+        if (g_str_has_prefix(path, "http")) {
+            cached_art_url = try_get_youtube_thumbnail(path);
+        } else {
+            cached_art_url = try_get_embedded_art(path);
+            if (!cached_art_url) {
+                cached_art_url = try_get_local_art(mpv, path);
+            }
+        }
     } else {
-        try_put_embedded_art(dict, path);
-        try_put_local_art(mpv, dict, path);
+        mpv_free(path);
     }
 
-    mpv_free(path);
+    if (cached_art_url) {
+        g_variant_dict_insert(dict, "mpris:artUrl", "s", cached_art_url);
+    }
 }
 
 static void add_metadata_content_created(mpv_handle *mpv, GVariantDict *dict)
