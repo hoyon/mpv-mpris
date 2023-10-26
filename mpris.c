@@ -286,11 +286,6 @@ static gchar* try_get_youtube_thumbnail(char *path)
 }
 
 static gchar* extract_embedded_art(AVFormatContext *context) {
-    if (avformat_find_stream_info(context, NULL) < 0) {
-        g_printerr("failed to find stream info");
-        return NULL;
-    }
-
     AVPacket *packet = NULL;
     for (unsigned int i = 0; i < context->nb_streams; i++) {
         if (context->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
