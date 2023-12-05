@@ -24,7 +24,7 @@ if [ -z "$MPV_MPRIS_TEST_MPV_IPC" ] ; then
 fi
 
 if [ -z "$MPV_MPRIS_TEST_LOG" ] ; then
-	export MPV_MPRIS_TEST_LOG=.
+	export MPV_MPRIS_TEST_LOG=meson-logs
 fi
 
 if [ -z "$MPV_MPRIS_TEST_DBUS" ] ; then
