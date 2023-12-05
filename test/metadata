@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./setup
+. $1
 
 test "$(playerctl metadata xesam:url)" = "file://$file"
 

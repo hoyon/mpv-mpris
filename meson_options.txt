@@ -1,0 +1,4 @@
+option('plugindir', type : 'string', value : 'mpv-mpris')
+option('sys_scripts_dir', type : 'string', value : '/etc/mpv/scripts')
+option('scripts_dir', type : 'string', value : '~/.config/mpv/scripts')
+option('install_user', type : 'boolean', value : false)

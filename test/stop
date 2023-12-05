@@ -2,7 +2,7 @@
 
 pause=1
 
-. ./setup
+. $1
 
 status Paused
 check pause true

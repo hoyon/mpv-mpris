@@ -12,7 +12,7 @@ test="$(basename "$1")"
 
 
 if [ -z "${MPV_MPRIS_TEST_PLUGIN+set}" ] ; then
-	export MPV_MPRIS_TEST_PLUGIN=../mpris.so
+	export MPV_MPRIS_TEST_PLUGIN=$4
 fi
 
 if [ -z "$MPV_MPRIS_TEST_PLAY" ] ; then

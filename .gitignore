@@ -1,4 +1,5 @@
 compile_commands.json
+build/
 mpris.so
 *.mpv.ipc.input.json
 *.mpv.ipc.output.json

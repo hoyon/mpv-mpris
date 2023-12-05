@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./setup
+. $1
 
 status Playing
 check pause false
