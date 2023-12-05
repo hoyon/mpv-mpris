@@ -32,10 +32,6 @@ Packages are available for many [distributions](https://repology.org/project/mpv
 For 64-bit x86 Linux a pre-built version is [available here](https://github.com/hoyon/mpv-mpris/releases)
 and can be copied into one of the mpv scripts directories documented above.
 
-A self-built `mpris.so` file can be installed with `make install` and will
-be installed to the appropriate mpv scripts directory for your current user
-or to the mpv system wide scripts directory for all users when you install as root.
-
 ## Build
 
 Build requirements:
