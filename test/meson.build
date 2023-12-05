@@ -9,6 +9,7 @@ setup = find_program('setup')
 env = find_program('env')
 clean = find_program('clean')
 
+# All new tests should have a priority of 1, this way the `clean-tests` test runs *after* everything else
 test('metadata-test', wrapper, args: ['--', metadata_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60, priority: 1)
 test('pause-test', wrapper, args: ['--', pause_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60, priority: 1)
 test('play-test', wrapper, args: ['--', play_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60, priority: 1)
