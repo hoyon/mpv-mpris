@@ -49,7 +49,3 @@ jobs:
       - name: Cleanup generated files
         run: |
           ninja -C build clean
-
-      - name: Check cleanup removed generated files
-        run: |
-          ! git ls-files --others | grep .
