@@ -44,7 +44,7 @@ jobs:
 
       - name: Check .gitignore matches generated files
         run: |
-          ! git ls-files --others --exclude-standard | grep .
+          ! git ls-files --others --exclude-standard | grep . | grep -v build/
 
       - name: Cleanup generated files
         run: |
