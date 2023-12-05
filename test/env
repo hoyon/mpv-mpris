@@ -107,6 +107,5 @@ TEMPDIR="$MPV_MPRIS_TEST_TMP" \
 TMPDIR="$MPV_MPRIS_TEST_TMP" \
 TEMP="$MPV_MPRIS_TEST_TMP" \
 TMP="$MPV_MPRIS_TEST_TMP" \
-dbus-run-session -- \
 xvfb-run "$xvfb_auto" --error-file "$MPV_MPRIS_TEST_LOG/$test.xvfb.log" -f "$MPV_MPRIS_TEST_XAUTH/$test.Xauthority" \
 "$@"

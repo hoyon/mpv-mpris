@@ -1,11 +1,4 @@
 #!/bin/sh
+exec dbus-run-session -- "$@"
 
-set -e
-
-# This allows the tests to run in parallel and not conflict
-eval `dbus-launch --sh-syntax`
-
-"$@"
-
-kill $DBUS_SESSION_BUS_PID
 
