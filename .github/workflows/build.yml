@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install libmpv-dev libglib2.0-dev libavformat-dev meson ninja
+          sudo apt install libmpv-dev libglib2.0-dev libavformat-dev meson ninja-build
 
       - name: Checkout
         uses: actions/checkout@v3
