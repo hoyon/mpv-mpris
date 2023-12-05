@@ -36,20 +36,4 @@ if not get_option('install_user')
   install_symlink('mpris.so', pointing_to: join_paths(lib_install_dir, fs.name(mpris_lib.full_path())), install_dir: get_option('sys_scripts_dir'))
 endif
 
-metadata_test = find_program('test/metadata')
-pause_test = find_program('test/pause')
-play_test = find_program('test/play')
-play_pause_test = find_program('test/play-pause')
-stop_test = find_program('test/stop')
-quit_test = find_program('test/quit')
-wrapper = find_program('dbus-run-session')
-setup = find_program('test/setup')
-env = find_program('test/env')
-
-test('metadata-test', wrapper, args: ['--', metadata_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60)
-test('pause-test', wrapper, args: ['--', pause_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60)
-test('play-test', wrapper, args: ['--', play_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60)
-test('play-pause-test', wrapper, args: ['--', play_pause_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60)
-test('stop-test', wrapper, args: ['--', stop_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60)
-test('quit-test', wrapper, args: ['--', quit_test.full_path(), setup.full_path(), env.full_path(), mpris_lib.full_path()], timeout: 60)
-
+subdir('test')
