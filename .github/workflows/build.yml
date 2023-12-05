@@ -12,20 +12,22 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install libmpv-dev libglib2.0-dev libavformat-dev
+          sudo apt install libmpv-dev libglib2.0-dev libavformat-dev meson ninja
 
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Build
         run: |
-          make
+          mkdir build
+          meson setup build
+          ninja -C build
 
       - name: Upload binary
         uses: actions/upload-artifact@v3
         with:
           name: mpris.so
-          path: mpris.so
+          path: build/libmpris.so
           if-no-files-found: error
 
       - name: Prepare for test
@@ -34,7 +36,7 @@ jobs:
 
       - name: Run tests
         run: |
-          make test
+          ninja -C build test
 
       - name: Check git files unmodified
         run: |
@@ -46,7 +48,7 @@ jobs:
 
       - name: Cleanup generated files
         run: |
-          make clean
+          ninja -C build clean
 
       - name: Check cleanup removed generated files
         run: |
