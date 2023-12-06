@@ -154,20 +154,17 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
     }
 }
 
-static gchar *path_to_uri(mpv_handle *mpv, char *path)
+static gchar *path_to_uri(char *path, char *working_dir)
 {
 #if GLIB_CHECK_VERSION(2, 58, 0)
     // version which uses g_canonicalize_filename which expands .. and .
     // and makes the uris neater
-    char* working_dir;
     gchar* canonical;
     gchar *uri;
 
-    working_dir = mpv_get_property_string(mpv, "working-directory");
     canonical = g_canonicalize_filename(path, working_dir);
     uri = g_filename_to_uri(canonical, NULL, NULL);
 
-    mpv_free(working_dir);
     g_free(canonical);
 
     return uri;
@@ -184,7 +181,6 @@ static gchar *path_to_uri(mpv_handle *mpv, char *path)
         absolute = g_build_filename(working_dir, path, NULL);
         converted = g_filename_to_uri(absolute, NULL, NULL);
 
-        mpv_free(working_dir);
         g_free(absolute);
     }
 
@@ -196,6 +192,7 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
 {
     char *path;
     char *uri;
+    char *working_dir;
 
     path = mpv_get_property_string(mpv, "path");
     if (!path) {
@@ -207,7 +204,9 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
         g_variant_dict_insert(dict, "xesam:url", "s", path);
         g_free(uri);
     } else {
-        gchar *converted = path_to_uri(mpv, path);
+        working_dir = mpv_get_property_string(mpv, "working-directory");
+        gchar *converted = path_to_uri(path, working_dir);
+        mpv_free(working_dir);
         g_variant_dict_insert(dict, "xesam:url", "s", converted);
         g_free(converted);
     }
@@ -215,46 +214,53 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
     mpv_free(path);
 }
 
-// Copied from https://github.com/videolan/vlc/blob/master/modules/meta_engine/folder.c
-static const char art_files[][20] = {
-    "Folder.jpg",           /* Windows */
-    "Folder.png",
-    "AlbumArtSmall.jpg",    /* Windows */
-    "AlbumArt.jpg",         /* Windows */
-    "Album.jpg",
-    ".folder.png",          /* KDE?    */
-    "cover.jpg",            /* rockbox */
-    "cover.png",
-    "cover.gif",
-    "front.jpg",
-    "front.png",
-    "front.gif",
-    "front.bmp",
-    "thumb.jpg",
+// Stolen from: vlc/-/blob/master/modules/meta_engine/folder.c#L40
+// sorted by priority (descending)
+static const char *const cover_files[] = {
+    "albumart",
+    "album",
+    "cover",
+    "front",
+    "albumartsmall",
+    "folder",
+    ".folder",
+    "thumb",
+    NULL
 };
 
-static const int art_files_count = sizeof(art_files) / sizeof(art_files[0]);
+// static const int art_files_count = sizeof(cover_files) / sizeof(cover_files[0]);
 
-static gchar* try_get_local_art(mpv_handle *mpv, char *path)
+static gchar* try_get_local_art(char *path)
 {
     gchar *dirname = g_path_get_dirname(path), *out = NULL;
     gboolean found = FALSE;
+    DIR *d = opendir(dirname);
 
-    for (int i = 0; i < art_files_count; i++) {
-        gchar *filename = g_build_filename(dirname, art_files[i], NULL);
+    struct dirent *de;
+    while((de = readdir(d))) {
+      gchar *basename = de->d_name;
+      gssize basename_len = (gssize) strlen(basename);
+      g_utf8_casefold(basename, basename_len);
+      gchar *ext_start = g_utf8_strrchr(basename, basename_len, '.');
+      if (!ext_start)
+        continue;
+      ext_start[0] = 0;
 
-        if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
-            out = path_to_uri(mpv, filename);
-            found = TRUE;
-        }
+      for (int n = 0; cover_files[n]; n++) {
+          if (strcmp(cover_files[n], basename) == 0) {
+              ext_start[0] = '.';
+              out = path_to_uri(de->d_name, dirname);
+              found = TRUE;
+          }
+      }
 
-        g_free(filename);
 
-        if (found) {
-            break;
-        }
+      if (found) {
+          break;
+      }
     }
 
+    closedir(d);
     g_free(dirname);
     return out;
 }
@@ -340,7 +346,7 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
         } else {
             cached_art_url = try_get_embedded_art(path);
             if (!cached_art_url) {
-                cached_art_url = try_get_local_art(mpv, path);
+                cached_art_url = try_get_local_art(path);
             }
         }
     } else {
