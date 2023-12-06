@@ -12,7 +12,7 @@ test="$(basename "$1")"
 
 
 if [ -z "${MPV_MPRIS_TEST_PLUGIN+set}" ] ; then
-	export MPV_MPRIS_TEST_PLUGIN=../mpris.so
+	export MPV_MPRIS_TEST_PLUGIN=$4
 fi
 
 if [ -z "$MPV_MPRIS_TEST_PLAY" ] ; then
@@ -24,7 +24,7 @@ if [ -z "$MPV_MPRIS_TEST_MPV_IPC" ] ; then
 fi
 
 if [ -z "$MPV_MPRIS_TEST_LOG" ] ; then
-	export MPV_MPRIS_TEST_LOG=.
+	export MPV_MPRIS_TEST_LOG=meson-logs
 fi
 
 if [ -z "$MPV_MPRIS_TEST_DBUS" ] ; then
@@ -107,6 +107,5 @@ TEMPDIR="$MPV_MPRIS_TEST_TMP" \
 TMPDIR="$MPV_MPRIS_TEST_TMP" \
 TEMP="$MPV_MPRIS_TEST_TMP" \
 TMP="$MPV_MPRIS_TEST_TMP" \
-dbus-run-session -- \
 xvfb-run "$xvfb_auto" --error-file "$MPV_MPRIS_TEST_LOG/$test.xvfb.log" -f "$MPV_MPRIS_TEST_XAUTH/$test.Xauthority" \
 "$@"

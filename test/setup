@@ -1,3 +1,5 @@
+#!/bin/sh
+
 set -e
 
 
@@ -7,7 +9,7 @@ set -x
 
 
 test -n "$MPV_MPRIS_TEST_NAME" ||
-exec "./env" "$0" "$@"
+exec "$2" "$0" "$@"
 
 
 test="$(basename "$0")"

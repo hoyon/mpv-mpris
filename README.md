@@ -32,10 +32,6 @@ Packages are available for many [distributions](https://repology.org/project/mpv
 For 64-bit x86 Linux a pre-built version is [available here](https://github.com/hoyon/mpv-mpris/releases)
 and can be copied into one of the mpv scripts directories documented above.
 
-A self-built `mpris.so` file can be installed with `make install` and will
-be installed to the appropriate mpv scripts directory for your current user
-or to the mpv system wide scripts directory for all users when you install as root.
-
 ## Build
 
 Build requirements:
@@ -45,8 +41,24 @@ Build requirements:
  - glib development files
  - gio development files
  - libavformat development files
+ - meson build
 
-Building should be as simple as running `make` in the source code directory.
+Building is very simple using meson
+```sh
+mkdir build
+meson setup build
+ninja -C build
+sudo ninja -C build install
+```
+
+If you don't want to install the plugin to the system, this is how you install the plugin to the user scripts directory
+```sh
+mkdir build
+meson setup build -Dinstall_user=true
+ninja -C build
+ninja -C build install
+```
+
 
 ## Test
 
@@ -62,8 +74,9 @@ Test requirements:
  - jq (for mpv IPC JSON generation and parsing)
  - socat (for passing JSON to/from mpv IPC sockets)
  - awk (for redirecting parts of mpv stderr logs)
+ - meson build (the backend for actually running the tests)
 
-Testing should be as simple as running `make test` in the source code directory.
+Testing should be as simple as running `ninja test` in the build directory, or `ninja -C build test` in the source directory.
 
 The stderr of the tests will be empty unless there are mpv/etc issues.
 
