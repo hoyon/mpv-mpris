@@ -1,4 +1,5 @@
 compile_commands.json
+.ccls-cache/
 mpris.so
 *.mpv.ipc.input.json
 *.mpv.ipc.output.json
