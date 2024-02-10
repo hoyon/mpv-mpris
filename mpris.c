@@ -289,7 +289,13 @@ static gchar* extract_embedded_art(AVFormatContext *context) {
     AVPacket *packet = NULL;
     for (unsigned int i = 0; i < context->nb_streams; i++) {
         if (context->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
-            packet = &context->streams[i]->attached_pic;
+            AVPacket *p = &context->streams[i]->attached_pic;
+
+            // Skip the thumbnail if the size is bigger than 25MiB to avoid crashes
+            if (p->size <= 25*0x100000) {
+                packet = p;
+                break;
+            }
         }
     }
     if (!packet) {
