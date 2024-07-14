@@ -72,6 +72,7 @@ typedef struct UserData
 {
     mpv_handle *mpv;
     GMainLoop *loop;
+    GMainContext *ctx;
     gint bus_id;
     GDBusConnection *connection;
     GDBusInterfaceInfo *root_interface_info;
@@ -909,7 +910,7 @@ static void on_name_lost(GDBusConnection *connection,
     if (connection) {
         UserData *ud = user_data;
         pid_t pid = getpid();
-        char *name = g_strdup_printf("org.mpris.MediaPlayer2.mpv.instance%d", pid);
+        char *name = g_strdup_printf("%s.instance%d", _name, pid);
         ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                     name,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
@@ -923,7 +924,22 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 {
     const char *prop_name = NULL;
     GVariant *prop_value = NULL;
-    if (g_strcmp0(name, "pause") == 0) {
+    if (g_strcmp0(name, "audio-client-name") == 0) {
+        char *mpv_name = *(char **)data;
+        char *dbus_name = g_strdup_printf("org.mpris.MediaPlayer2.%s", mpv_name);
+
+        g_bus_unown_name(ud->bus_id);
+        g_main_context_push_thread_default(ud->ctx);
+        ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+                                   dbus_name,
+                                   G_BUS_NAME_OWNER_FLAGS_NONE,
+                                   NULL,
+                                   NULL,
+                                   NULL,
+                                   &ud, NULL);
+        g_main_context_pop_thread_default(ud->ctx);
+        g_free(dbus_name);
+    } else if (g_strcmp0(name, "pause") == 0) {
         ud->paused = *(int*)data;
         prop_name = "PlaybackStatus";
         prop_value = set_playback_status(ud);
@@ -1076,6 +1092,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     ud.mpv = mpv;
     ud.loop = loop;
+    ud.ctx = ctx;
     ud.status = STATUS_STOPPED;
     ud.loop_status = LOOP_NONE;
     ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
@@ -1094,6 +1111,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     g_main_context_pop_thread_default(ctx);
 
     // Receive event for property changes
+    mpv_observe_property(mpv, 0, "audio-client-name", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "idle-active", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "media-title", MPV_FORMAT_STRING);
