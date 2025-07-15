@@ -679,7 +679,7 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(property_name, "Shuffle") == 0) {
         int shuffle;
-        mpv_get_property(ud->mpv, "playlist-shuffle", MPV_FORMAT_FLAG, &shuffle);
+        mpv_get_property(ud->mpv, "shuffle", MPV_FORMAT_FLAG, &shuffle);
         ret = g_variant_new_boolean(shuffle);
 
     } else if (g_strcmp0(property_name, "Metadata") == 0) {
@@ -769,7 +769,7 @@ static gboolean set_property_player(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(property_name, "Shuffle") == 0) {
         int shuffle = g_variant_get_boolean(value);
-        mpv_set_property(ud->mpv, "playlist-shuffle", MPV_FORMAT_FLAG, &shuffle);
+        mpv_set_property(ud->mpv, "shuffle", MPV_FORMAT_FLAG, &shuffle);
 
     } else if (g_strcmp0(property_name, "Volume") == 0) {
         double volume = g_variant_get_double(value);
@@ -988,6 +988,11 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
 
+    } else if (g_strcmp0(name, "shuffle") == 0) {
+        int shuffle = *(int*)data;
+        prop_name = "Shuffle";
+        prop_value = g_variant_new_boolean(shuffle);
+
     } else if (g_strcmp0(name, "fullscreen") == 0) {
         gboolean *status = data;
         prop_name = "Fullscreen";
@@ -1102,6 +1107,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "loop-file", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "loop-playlist", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
+    mpv_observe_property(mpv, 0, "shuffle", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "fullscreen", MPV_FORMAT_FLAG);
 
     // Run callback whenever there are events
