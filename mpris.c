@@ -80,6 +80,7 @@ typedef struct UserData
     guint player_interface_id;
     const char *status;
     const char *loop_status;
+    gboolean shuffle;
     GHashTable *changed_properties;
     GVariant *metadata;
     gboolean seek_expected;
@@ -682,7 +683,7 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(property_name, "Shuffle") == 0) {
         int shuffle;
-        mpv_get_property(ud->mpv, "playlist-shuffle", MPV_FORMAT_FLAG, &shuffle);
+        mpv_get_property(ud->mpv, "shuffle", MPV_FORMAT_FLAG, &shuffle);
         ret = g_variant_new_boolean(shuffle);
 
     } else if (g_strcmp0(property_name, "Metadata") == 0) {
@@ -772,7 +773,14 @@ static gboolean set_property_player(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(property_name, "Shuffle") == 0) {
         int shuffle = g_variant_get_boolean(value);
-        mpv_set_property(ud->mpv, "playlist-shuffle", MPV_FORMAT_FLAG, &shuffle);
+        if (shuffle && !ud->shuffle) {
+            const char *cmd[] = {"playlist-shuffle", NULL};
+            mpv_command_async(ud->mpv, 0, cmd);
+        } else if (!shuffle && ud->shuffle) {
+            const char *cmd[] = {"playlist-unshuffle", NULL};
+            mpv_command_async(ud->mpv, 0, cmd);
+        }
+        mpv_set_property(ud->mpv, "shuffle", MPV_FORMAT_FLAG, &shuffle);
 
     } else if (g_strcmp0(property_name, "Volume") == 0) {
         double volume = g_variant_get_double(value);
@@ -991,6 +999,12 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
 
+    } else if (g_strcmp0(name, "shuffle") == 0) {
+        int shuffle = *(int*)data;
+        ud->shuffle = shuffle;
+        prop_name = "Shuffle";
+        prop_value = g_variant_new_boolean(shuffle);
+
     } else if (g_strcmp0(name, "fullscreen") == 0) {
         gboolean *status = data;
         prop_name = "Fullscreen";
@@ -1085,6 +1099,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.seek_expected = FALSE;
     ud.idle = FALSE;
     ud.paused = FALSE;
+    ud.shuffle = FALSE;
 
     g_main_context_push_thread_default(ctx);
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
@@ -1105,6 +1120,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "loop-file", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "loop-playlist", MPV_FORMAT_STRING);
     mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
+    mpv_observe_property(mpv, 0, "shuffle", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "fullscreen", MPV_FORMAT_FLAG);
 
     // Run callback whenever there are events
