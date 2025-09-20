@@ -228,20 +228,36 @@ static const gchar *coverart[] = {
 static gchar* try_get_local_art(mpv_handle *mpv, char *path)
 {
     gchar *out = NULL;
-    gchar *dirname = g_path_get_dirname(path);
+    gchar *base = g_strndup(path, strrchr(path, '.') - path);
 
+    /* Try to find song art */
+    for (const gchar **ext = image_exts; *ext; ++ext) {
+        gchar *filename = g_strdup_printf("%s.%s", base, *ext);
+        if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+            out = path_to_uri(mpv, filename);
+            g_free(filename); filename = NULL;
+            g_free(base); base = NULL;
+            return out;
+        }
+        g_free(filename); filename = NULL;
+    }
+    g_free(base); base = NULL;
+
+    /* Try to find album art */
+    gchar *dirname = g_path_get_dirname(path);
     for (const gchar **ext = image_exts; *ext; ++ext) {
         for (const gchar **name = coverart; *name; ++name) {
             gchar *filename = g_strdup_printf("%s/%s.%s", dirname, *name, *ext);
             if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
                 out = path_to_uri(mpv, filename);
-                g_free(filename); g_free(dirname);
+                g_free(filename); filename = NULL;
+                g_free(dirname); dirname = NULL;
                 return out;
             }
-            g_free(filename);
+            g_free(filename); filename = NULL;
         }
     }
-    g_free(dirname);
+    g_free(dirname); dirname = NULL;
     return out;
 }
 
