@@ -416,7 +416,6 @@ static GVariant *create_metadata(UserData *ud)
     // initial value. Replaced with metadata value if available
     add_metadata_item_string(ud->mpv, &dict, "media-title", "xesam:title");
 
-    add_metadata_item_string(ud->mpv, &dict, "metadata/by-key/Title", "xesam:title");
     add_metadata_item_string(ud->mpv, &dict, "metadata/by-key/Album", "xesam:album");
     add_metadata_item_string(ud->mpv, &dict, "metadata/by-key/Genre", "xesam:genre");
 
