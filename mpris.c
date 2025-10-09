@@ -102,7 +102,7 @@ static gchar *string_to_utf8(gchar *maybe_utf8)
     if (g_utf8_validate(attempted_validation, -1, NULL)) {
         return attempted_validation;
     } else {
-        g_free(attempted_validation);
+        g_free(attempted_validation); attempted_validation = NULL;
         return g_strdup("<invalid utf8>");
     }
 }
@@ -114,8 +114,8 @@ static void add_metadata_item_string(mpv_handle *mpv, GVariantDict *dict,
     if (temp) {
         char *utf8 = string_to_utf8(temp);
         g_variant_dict_insert(dict, tag, "s", utf8);
-        g_free(utf8);
-        mpv_free(temp);
+        g_free(utf8); utf8 = NULL;
+        mpv_free(temp); temp = NULL;
     }
 }
 
@@ -144,13 +144,13 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
             char *item = *iter;
             char *utf8 = string_to_utf8(item);
             g_variant_builder_add(&builder, "s", utf8);
-            g_free(utf8);
+            g_free(utf8); utf8 = NULL;
         }
 
         g_variant_dict_insert(dict, tag, "as", &builder);
 
         g_strfreev(list);
-        mpv_free(temp);
+        mpv_free(temp); temp = NULL;
     }
 }
 
@@ -184,8 +184,8 @@ static gchar *path_to_uri(mpv_handle *mpv, char *path)
         absolute = g_build_filename(working_dir, path, NULL);
         converted = g_filename_to_uri(absolute, NULL, NULL);
 
-        mpv_free(working_dir);
-        g_free(absolute);
+        mpv_free(working_dir); working_dir = NULL;
+        g_free(absolute); absolute = NULL;
     }
 
     return converted;
@@ -205,14 +205,14 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
     uri = g_uri_parse_scheme(path);
     if (uri) {
         g_variant_dict_insert(dict, "xesam:url", "s", path);
-        g_free(uri);
+        g_free(uri); uri = NULL;
     } else {
         gchar *converted = path_to_uri(mpv, path);
         g_variant_dict_insert(dict, "xesam:url", "s", converted);
-        g_free(converted);
+        g_free(converted); converted = NULL;
     }
 
-    mpv_free(path);
+    mpv_free(path); path = NULL;
 }
 
 // Copied from https://github.com/videolan/vlc/blob/master/modules/meta_engine/folder.c
@@ -248,14 +248,14 @@ static gchar* try_get_local_art(mpv_handle *mpv, char *path)
             found = TRUE;
         }
 
-        g_free(filename);
+        g_free(filename); filename = NULL;
 
         if (found) {
             break;
         }
     }
 
-    g_free(dirname);
+    g_free(dirname); dirname = NULL;
     return out;
 }
 
@@ -278,10 +278,10 @@ static gchar* try_get_youtube_thumbnail(char *path)
         gchar *video_id = g_match_info_fetch_named(match_info, "id");
         out = g_strconcat("https://i1.ytimg.com/vi/",
                                            video_id, "/hqdefault.jpg", NULL);
-        g_free(video_id);
+        g_free(video_id); video_id = NULL;
     }
 
-    g_match_info_free(match_info);
+    g_match_info_free(match_info); match_info = NULL;
     return out;
 }
 
@@ -299,7 +299,7 @@ static gchar* extract_embedded_art(AVFormatContext *context) {
     gchar *data = g_base64_encode(packet->data, packet->size);
     gchar *img = g_strconcat("data:image/jpeg;base64,", data, NULL);
 
-    g_free(data);
+    g_free(data); data = NULL;
     return img;
 }
 
@@ -331,8 +331,8 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
 
     // mpv may call create_metadata multiple times, so cache to save CPU
     if (!cached_path || strcmp(path, cached_path)) {
-        mpv_free(cached_path);
-        g_free(cached_art_url);
+        mpv_free(cached_path); cached_path = NULL;
+        g_free(cached_art_url); cached_art_url = NULL;
         cached_path = path;
 
         if (g_str_has_prefix(path, "http")) {
@@ -344,7 +344,7 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
             }
         }
     } else {
-        mpv_free(path);
+        mpv_free(path); path = NULL;
     }
 
     if (cached_art_url) {
@@ -376,8 +376,8 @@ static void add_metadata_content_created(mpv_handle *mpv, GVariantDict *dict)
         g_variant_dict_insert(dict, "xesam:contentCreated", "s", iso8601);
     }
 
-    g_date_free(date);
-    mpv_free(date_str);
+    g_date_free(date); date = NULL;
+    mpv_free(date_str); date_str = NULL;
 }
 
 static GVariant *create_metadata(UserData *ud)
@@ -399,7 +399,7 @@ static GVariant *create_metadata(UserData *ud)
         temp_str = g_strdup_printf("/%" PRId64, track);
     }
     g_variant_dict_insert(&dict, "mpris:trackid", "o", temp_str);
-    g_free(temp_str);
+    g_free(temp_str); temp_str = NULL;
 
     // mpris:length
     res = mpv_get_property(ud->mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
@@ -624,7 +624,7 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
         const char *cmd[] = {"seek", offset_str, NULL};
         mpv_command_async(ud->mpv, 0, cmd);
         g_dbus_method_invocation_return_value(invocation, NULL);
-        g_free(offset_str);
+        g_free(offset_str); offset_str = NULL;
 
     } else if (g_strcmp0(method_name, "SetPosition") == 0) {
         int64_t current_id;
@@ -915,7 +915,7 @@ static void on_name_lost(GDBusConnection *connection,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
                                     NULL, NULL, NULL,
                                     &ud, NULL);
-        g_free(name);
+        g_free(name); name = NULL;
     }
 }
 
@@ -966,7 +966,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
             } else {
                 ud->loop_status = LOOP_NONE;
             }
-            mpv_free(playlist_status);
+            mpv_free(playlist_status); playlist_status = NULL;
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
@@ -983,7 +983,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
             } else {
                 ud->loop_status = LOOP_NONE;
             }
-            mpv_free(file_status);
+            mpv_free(file_status); file_status = NULL;
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
