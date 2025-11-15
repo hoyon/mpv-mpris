@@ -215,47 +215,34 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
     mpv_free(path);
 }
 
-// Copied from https://github.com/videolan/vlc/blob/master/modules/meta_engine/folder.c
-static const char art_files[][20] = {
-    "Folder.jpg",           /* Windows */
-    "Folder.png",
-    "AlbumArtSmall.jpg",    /* Windows */
-    "AlbumArt.jpg",         /* Windows */
-    "Album.jpg",
-    ".folder.png",          /* KDE?    */
-    "cover.jpg",            /* rockbox */
-    "cover.png",
-    "cover.gif",
-    "front.jpg",
-    "front.png",
-    "front.gif",
-    "front.bmp",
-    "thumb.jpg",
+static const gchar *image_exts[] = {
+    "jpg", "png", "jpeg", "webp", "avif", "bmp", "svg", "gif", "heic", "heif",
+    "j2k", "jp2", "jxl", "qoi", "tga", "tif", "tiff", NULL
 };
 
-static const int art_files_count = sizeof(art_files) / sizeof(art_files[0]);
+static const gchar *coverart[] = {
+    "AlbumArt", "Album", "cover", "front", "AlbumArtSmall", "Folder",
+    ".folder", "thumb", NULL
+};
 
 static gchar* try_get_local_art(mpv_handle *mpv, char *path)
 {
-    gchar *dirname = g_path_get_dirname(path), *out = NULL;
-    gboolean found = FALSE;
+    gchar *out = NULL;
+    gchar *dirname = g_path_get_dirname(path);
 
-    for (int i = 0; i < art_files_count; i++) {
-        gchar *filename = g_build_filename(dirname, art_files[i], NULL);
-
-        if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
-            out = path_to_uri(mpv, filename);
-            found = TRUE;
-        }
-
-        g_free(filename);
-
-        if (found) {
-            break;
+    for (const gchar **ext = image_exts; *ext; ++ext) {
+        for (const gchar **name = coverart; *name; ++name) {
+            gchar *filename = g_strdup_printf("%s/%s.%s", dirname, *name, *ext);
+            if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+                out = path_to_uri(mpv, filename);
+                g_free(filename); filename = NULL;
+                g_free(dirname); dirname = NULL;
+                return out;
+            }
+            g_free(filename); filename = NULL;
         }
     }
-
-    g_free(dirname);
+    g_free(dirname); dirname = NULL;
     return out;
 }
 
