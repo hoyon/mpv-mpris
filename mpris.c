@@ -216,46 +216,41 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
     mpv_free(path);
 }
 
-// Copied from https://github.com/videolan/vlc/blob/master/modules/meta_engine/folder.c
-static const char art_files[][20] = {
-    "Folder.jpg",           /* Windows */
-    "Folder.png",
-    "AlbumArtSmall.jpg",    /* Windows */
-    "AlbumArt.jpg",         /* Windows */
-    "Album.jpg",
-    ".folder.png",          /* KDE?    */
-    "cover.jpg",            /* rockbox */
-    "cover.png",
-    "cover.gif",
-    "front.jpg",
-    "front.png",
-    "front.gif",
-    "front.bmp",
-    "thumb.jpg",
-};
-
-static const int art_files_count = sizeof(art_files) / sizeof(art_files[0]);
-
 static gchar* try_get_local_art(mpv_handle *mpv, char *path)
 {
-    gchar *dirname = g_path_get_dirname(path), *out = NULL;
-    gboolean found = FALSE;
+    gchar *out = NULL;
+    gchar *dirname = g_path_get_dirname(path);
 
-    for (int i = 0; i < art_files_count; i++) {
-        gchar *filename = g_build_filename(dirname, art_files[i], NULL);
+    char *exts_str = mpv_get_property_string(mpv, "image-exts");
+    char *names_str = mpv_get_property_string(mpv, "cover-art-whitelist");
 
-        if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
-            out = path_to_uri(mpv, filename);
-            found = TRUE;
-        }
+    if (!exts_str || !names_str) {
+        mpv_free(exts_str);
+        mpv_free(names_str);
+        g_free(dirname);
+        return NULL;
+    }
 
-        g_free(filename);
+    gchar **exts = g_strsplit(exts_str, ",", -1);
+    gchar **names = g_strsplit(names_str, ",", -1);
+    mpv_free(exts_str);
+    mpv_free(names_str);
 
-        if (found) {
-            break;
+    for (gchar **name = names; *name; ++name) {
+        for (gchar **ext = exts; *ext; ++ext) {
+            gchar *filename = g_strdup_printf("%s/%s.%s", dirname, *name, *ext);
+            if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+                out = path_to_uri(mpv, filename);
+                g_free(filename);
+                goto done;
+            }
+            g_free(filename);
         }
     }
 
+done:
+    g_strfreev(exts);
+    g_strfreev(names);
     g_free(dirname);
     return out;
 }
