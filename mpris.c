@@ -216,7 +216,28 @@ static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
     mpv_free(path);
 }
 
-static gchar* try_get_local_art(mpv_handle *mpv, char *path)
+static gchar* try_get_cover_art_file(mpv_handle *mpv)
+{
+    char *files_str = mpv_get_property_string(mpv, "cover-art-files");
+    if (!files_str || files_str[0] == '\0') {
+        mpv_free(files_str);
+        return NULL;
+    }
+
+    // cover-art-files is a comma-separated list, use the first one
+    gchar **files = g_strsplit(files_str, ",", -1);
+    mpv_free(files_str);
+
+    gchar *out = NULL;
+    if (files[0] && files[0][0] != '\0') {
+        out = path_to_uri(mpv, files[0]);
+    }
+
+    g_strfreev(files);
+    return out;
+}
+
+static gchar* try_get_folder_art(mpv_handle *mpv, char *path)
 {
     gchar *out = NULL;
     gchar *dirname = g_path_get_dirname(path);
@@ -317,6 +338,23 @@ static gchar* try_get_embedded_art(char *path)
     return out;
 }
 
+static gchar* get_art_url(mpv_handle *mpv, char *path)
+{
+    gchar *url;
+    gboolean is_remote = g_str_has_prefix(path, "http");
+
+    if ((url = try_get_cover_art_file(mpv)))
+        return url;
+    if (is_remote && (url = try_get_youtube_thumbnail(path)))
+        return url;
+    if (!is_remote && (url = try_get_embedded_art(path)))
+        return url;
+    if (!is_remote && (url = try_get_folder_art(mpv, path)))
+        return url;
+
+    return NULL;
+}
+
 // cached last file path, owned by mpv
 static char *cached_path = NULL;
 
@@ -336,15 +374,7 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
         mpv_free(cached_path);
         g_free(cached_art_url);
         cached_path = path;
-
-        if (g_str_has_prefix(path, "http")) {
-            cached_art_url = try_get_youtube_thumbnail(path);
-        } else {
-            cached_art_url = try_get_embedded_art(path);
-            if (!cached_art_url) {
-                cached_art_url = try_get_local_art(mpv, path);
-            }
-        }
+        cached_art_url = get_art_url(mpv, path);
     } else {
         mpv_free(path);
     }
