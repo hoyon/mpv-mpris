@@ -72,6 +72,8 @@ typedef struct UserData
 {
     mpv_handle *mpv;
     GMainLoop *loop;
+    GMainContext *ctx;
+    int wakeup_pipe[2];
     gint bus_id;
     GDBusConnection *connection;
     GDBusInterfaceInfo *root_interface_info;
@@ -94,6 +96,8 @@ static const char *STATUS_STOPPED = "Stopped";
 static const char *LOOP_NONE = "None";
 static const char *LOOP_TRACK = "Track";
 static const char *LOOP_PLAYLIST = "Playlist";
+
+static void setup_mpv_event_sources(UserData *ud);
 
 static gchar *string_to_utf8(gchar *maybe_utf8)
 {
@@ -910,7 +914,7 @@ static void set_stopped_status(UserData *ud)
   emit_property_changes(ud);
 }
 
-// Register D-Bus object and interfaces
+// Register D-Bus object and interfaces, then set up mpv event handlers
 static void on_bus_acquired(GDBusConnection *connection,
                             G_GNUC_UNUSED const char *name,
                             gpointer user_data)
@@ -936,6 +940,8 @@ static void on_bus_acquired(GDBusConnection *connection,
     if (error != NULL) {
         g_printerr("%s", error->message);
     }
+
+    setup_mpv_event_sources(ud);
 }
 
 static void on_name_lost(GDBusConnection *connection,
@@ -1091,6 +1097,36 @@ static void wakeup_handler(void *fd)
     (void)!write(*((int*)fd), "0", 1);
 }
 
+static void setup_mpv_event_sources(UserData *ud)
+{
+    GError *error = NULL;
+    GSource *mpv_pipe_source;
+    GSource *timeout_source;
+
+    g_unix_open_pipe(ud->wakeup_pipe, 0, &error);
+    if (error != NULL) {
+        g_printerr("%s", error->message);
+    }
+    fcntl(ud->wakeup_pipe[0], F_SETFL, O_NONBLOCK);
+    mpv_set_wakeup_callback(ud->mpv, wakeup_handler, &ud->wakeup_pipe[1]);
+
+    mpv_pipe_source = g_unix_fd_source_new(ud->wakeup_pipe[0], G_IO_IN);
+    g_source_set_callback(mpv_pipe_source,
+                          G_SOURCE_FUNC(event_handler),
+                          ud,
+                          NULL);
+    g_source_attach(mpv_pipe_source, ud->ctx);
+    g_source_unref(mpv_pipe_source);
+
+    timeout_source = g_timeout_source_new(100);
+    g_source_set_callback(timeout_source,
+                          G_SOURCE_FUNC(emit_property_changes),
+                          ud,
+                          NULL);
+    g_source_attach(timeout_source, ud->ctx);
+    g_source_unref(timeout_source);
+}
+
 // Plugin entry point
 int mpv_open_cplugin(mpv_handle *mpv)
 {
@@ -1099,9 +1135,6 @@ int mpv_open_cplugin(mpv_handle *mpv)
     UserData ud = {0};
     GError *error = NULL;
     GDBusNodeInfo *introspection_data = NULL;
-    int pipe[2];
-    GSource *mpv_pipe_source;
-    GSource *timeout_source;
 
     ctx = g_main_context_new();
     loop = g_main_loop_new(ctx, FALSE);
@@ -1118,6 +1151,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     ud.mpv = mpv;
     ud.loop = loop;
+    ud.ctx = ctx;
     ud.status = STATUS_STOPPED;
     ud.loop_status = LOOP_NONE;
     ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
@@ -1148,32 +1182,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "shuffle", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "fullscreen", MPV_FORMAT_FLAG);
 
-    // Run callback whenever there are events
-    g_unix_open_pipe(pipe, 0, &error);
-    if (error != NULL) {
-        g_printerr("%s", error->message);
-    }
-    fcntl(pipe[0], F_SETFL, O_NONBLOCK);
-    mpv_set_wakeup_callback(mpv, wakeup_handler, &pipe[1]);
-    mpv_pipe_source = g_unix_fd_source_new(pipe[0], G_IO_IN);
-    g_source_set_callback(mpv_pipe_source,
-                          G_SOURCE_FUNC(event_handler),
-                          &ud,
-                          NULL);
-    g_source_attach(mpv_pipe_source, ctx);
-
-    // Emit any new property changes every 100ms
-    timeout_source = g_timeout_source_new(100);
-    g_source_set_callback(timeout_source,
-                          G_SOURCE_FUNC(emit_property_changes),
-                          &ud,
-                          NULL);
-    g_source_attach(timeout_source, ctx);
-
     g_main_loop_run(loop);
-
-    g_source_unref(mpv_pipe_source);
-    g_source_unref(timeout_source);
 
     g_dbus_connection_unregister_object(ud.connection, ud.root_interface_id);
     g_dbus_connection_unregister_object(ud.connection, ud.player_interface_id);
