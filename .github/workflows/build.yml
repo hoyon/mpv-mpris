@@ -15,14 +15,14 @@ jobs:
           sudo apt install libmpv-dev libglib2.0-dev libavformat-dev
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Build
         run: |
           make
 
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: mpris.so
           path: mpris.so
