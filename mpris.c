@@ -88,6 +88,7 @@ typedef struct UserData
     gboolean seek_expected;
     gboolean idle;
     gboolean paused;
+    gboolean events_setup;
 } UserData;
 
 static const char *STATUS_PLAYING = "Playing";
@@ -861,6 +862,7 @@ static gboolean emit_property_changes(gpointer data)
                                       params, &error);
         if (error != NULL) {
             g_printerr("%s", error->message);
+            g_clear_error(&error);
         }
 
         g_hash_table_remove_all(ud->changed_properties);
@@ -886,6 +888,7 @@ static void emit_seeked_signal(UserData *ud)
 
     if (error != NULL) {
         g_printerr("%s", error->message);
+        g_clear_error(&error);
     }
 }
 
@@ -923,33 +926,43 @@ static void on_bus_acquired(GDBusConnection *connection,
     UserData *ud = user_data;
     ud->connection = connection;
 
-    ud->root_interface_id =
-        g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
-                                          ud->root_interface_info,
-                                          &vtable_root,
-                                          user_data, NULL, &error);
-    if (error != NULL) {
-        g_printerr("%s", error->message);
+    if (ud->root_interface_id == 0) {
+        ud->root_interface_id =
+            g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
+                                              ud->root_interface_info,
+                                              &vtable_root,
+                                              user_data, NULL, &error);
+        if (error != NULL) {
+            g_printerr("Failed to register root interface: %s\n", error->message);
+            g_clear_error(&error);
+        }
     }
 
-    ud->player_interface_id =
-        g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
-                                        ud->player_interface_info,
-                                        &vtable_player,
-                                        user_data, NULL, &error);
-    if (error != NULL) {
-        g_printerr("%s", error->message);
+    if (ud->player_interface_id == 0) {
+        ud->player_interface_id =
+            g_dbus_connection_register_object(connection, "/org/mpris/MediaPlayer2",
+                                              ud->player_interface_info,
+                                              &vtable_player,
+                                              user_data, NULL, &error);
+        if (error != NULL) {
+            g_printerr("Failed to register player interface: %s\n", error->message);
+            g_clear_error(&error);
+        }
     }
 
-    setup_mpv_event_sources(ud);
+    if (!ud->events_setup) {
+        setup_mpv_event_sources(ud);
+        ud->events_setup = TRUE;
+    }
 }
 
 static void on_name_lost(GDBusConnection *connection,
                          G_GNUC_UNUSED const char *_name,
                          gpointer user_data)
 {
+    UserData *ud = user_data;
+
     if (connection) {
-        UserData *ud = user_data;
         pid_t pid = getpid();
         char *name = g_strdup_printf("org.mpris.MediaPlayer2.mpv.instance%d", pid);
         ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
@@ -958,6 +971,9 @@ static void on_name_lost(GDBusConnection *connection,
                                     NULL, NULL, NULL,
                                     &ud, NULL);
         g_free(name);
+    } else {
+      ud->root_interface_id = 0;
+      ud->player_interface_id = 0;
     }
 }
 
@@ -1106,6 +1122,7 @@ static void setup_mpv_event_sources(UserData *ud)
     g_unix_open_pipe(ud->wakeup_pipe, 0, &error);
     if (error != NULL) {
         g_printerr("%s", error->message);
+        g_clear_error(&error);
     }
     fcntl(ud->wakeup_pipe[0], F_SETFL, O_NONBLOCK);
     mpv_set_wakeup_callback(ud->mpv, wakeup_handler, &ud->wakeup_pipe[1]);
@@ -1143,6 +1160,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     introspection_data = g_dbus_node_info_new_for_xml(introspection_xml, &error);
     if (error != NULL) {
         g_printerr("%s", error->message);
+        g_clear_error(&error);
     }
     ud.root_interface_info =
         g_dbus_node_info_lookup_interface(introspection_data, "org.mpris.MediaPlayer2");
