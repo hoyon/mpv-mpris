@@ -80,6 +80,7 @@ typedef struct UserData
     GDBusInterfaceInfo *player_interface_info;
     guint root_interface_id;
     guint player_interface_id;
+    char *client_name;
     const char *status;
     const char *loop_status;
     gboolean shuffle;
@@ -969,6 +970,24 @@ static char *generate_random_id(void)
     return id;
 }
 
+static char *build_bus_name(const char *client_name, gboolean unique_suffix)
+{
+    GString *name = g_string_new("org.mpris.MediaPlayer2.mpv");
+
+    // don't append client name if it is the default value 'mpv'
+    if (g_strcmp0(client_name, "mpv") != 0) {
+        g_string_append_printf(name, ".%s", client_name);
+    }
+
+    if (unique_suffix) {
+        char *id = generate_random_id();
+        g_string_append_printf(name, ".instance-%s", id);
+        g_free(id);
+    }
+
+    return g_string_free(name, FALSE);
+}
+
 static void on_name_lost(GDBusConnection *connection,
                          G_GNUC_UNUSED const char *_name,
                          gpointer user_data)
@@ -976,15 +995,13 @@ static void on_name_lost(GDBusConnection *connection,
     UserData *ud = user_data;
 
     if (connection) {
-        char *id = generate_random_id();
-        char *name = g_strdup_printf("org.mpris.MediaPlayer2.mpv.instance-%s", id);
+        char *name = build_bus_name(ud->client_name, TRUE);
         ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                     name,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
                                     NULL, NULL, NULL,
                                     &ud, NULL);
         g_free(name);
-        g_free(id);
     } else {
       ud->root_interface_id = 0;
       ud->player_interface_id = 0;
@@ -1191,16 +1208,19 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.idle = FALSE;
     ud.paused = FALSE;
     ud.shuffle = FALSE;
+    ud.client_name = mpv_get_property_string(mpv, "audio-client-name");
 
+    char *bus_name = build_bus_name(ud.client_name, FALSE);
     g_main_context_push_thread_default(ctx);
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
-                               "org.mpris.MediaPlayer2.mpv",
+                               bus_name,
                                G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE,
                                on_bus_acquired,
                                NULL,
                                on_name_lost,
                                &ud, NULL);
     g_main_context_pop_thread_default(ctx);
+    g_free(bus_name);
 
     // Receive event for property changes
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);
@@ -1223,6 +1243,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     g_main_loop_unref(loop);
     g_main_context_unref(ctx);
     g_dbus_node_info_unref(introspection_data);
+    mpv_free(ud.client_name);
 
     return 0;
 }
