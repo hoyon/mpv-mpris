@@ -956,6 +956,19 @@ static void on_bus_acquired(GDBusConnection *connection,
     }
 }
 
+static char *generate_random_id(void)
+{
+    static const char alpha[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const int len = 8;
+
+    char *id = g_malloc(len + 1);
+    for (int i = 0; i < len; i++) {
+        id[i] = alpha[g_random_int_range(0, sizeof(alpha) - 1)];
+    }
+    id[len] = '\0';
+    return id;
+}
+
 static void on_name_lost(GDBusConnection *connection,
                          G_GNUC_UNUSED const char *_name,
                          gpointer user_data)
@@ -963,14 +976,15 @@ static void on_name_lost(GDBusConnection *connection,
     UserData *ud = user_data;
 
     if (connection) {
-        pid_t pid = getpid();
-        char *name = g_strdup_printf("org.mpris.MediaPlayer2.mpv.instance%d", pid);
+        char *id = generate_random_id();
+        char *name = g_strdup_printf("org.mpris.MediaPlayer2.mpv.instance-%s", id);
         ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                     name,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
                                     NULL, NULL, NULL,
                                     &ud, NULL);
         g_free(name);
+        g_free(id);
     } else {
       ud->root_interface_id = 0;
       ud->player_interface_id = 0;
