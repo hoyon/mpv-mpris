@@ -163,9 +163,6 @@ static void add_metadata_item_string_list(mpv_handle *mpv, GVariantDict *dict,
 
 static gchar *path_to_uri(mpv_handle *mpv, char *path)
 {
-#if GLIB_CHECK_VERSION(2, 58, 0)
-    // version which uses g_canonicalize_filename which expands .. and .
-    // and makes the uris neater
     char* working_dir;
     gchar* canonical;
     gchar *uri;
@@ -178,25 +175,6 @@ static gchar *path_to_uri(mpv_handle *mpv, char *path)
     g_free(canonical);
 
     return uri;
-#else
-    // for compatibility with older versions of glib
-    gchar *converted;
-    if (g_path_is_absolute(path)) {
-        converted = g_filename_to_uri(path, NULL, NULL);
-    } else {
-        char* working_dir;
-        gchar* absolute;
-
-        working_dir = mpv_get_property_string(mpv, "working-directory");
-        absolute = g_build_filename(working_dir, path, NULL);
-        converted = g_filename_to_uri(absolute, NULL, NULL);
-
-        mpv_free(working_dir);
-        g_free(absolute);
-    }
-
-    return converted;
-#endif
 }
 
 static void add_metadata_uri(mpv_handle *mpv, GVariantDict *dict)
