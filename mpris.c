@@ -90,6 +90,8 @@ typedef struct UserData
     gboolean idle;
     gboolean paused;
     gboolean events_setup;
+    int64_t playlist_count;
+    int64_t playlist_pos;
 } UserData;
 
 static const char *STATUS_PLAYING = "Playing";
@@ -100,6 +102,8 @@ static const char *LOOP_TRACK = "Track";
 static const char *LOOP_PLAYLIST = "Playlist";
 
 static void setup_mpv_event_sources(UserData *ud);
+static gboolean can_go_next(UserData *ud);
+static gboolean can_go_previous(UserData *ud);
 
 static gchar *string_to_utf8(gchar *maybe_utf8)
 {
@@ -399,7 +403,6 @@ static void add_metadata_content_created(mpv_handle *mpv, GVariantDict *dict)
 static GVariant *create_metadata(UserData *ud)
 {
     GVariantDict dict;
-    int64_t track;
     double duration;
     char *temp_str;
     int res;
@@ -407,12 +410,11 @@ static GVariant *create_metadata(UserData *ud)
     g_variant_dict_init(&dict, NULL);
 
     // mpris:trackid
-    mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &track);
-    // playlist-pos < 0 if there is no playlist or current track
-    if (track < 0) {
+    // playlist_pos < 0 if there is no playlist or current track
+    if (ud->playlist_pos < 0) {
         temp_str = g_strdup("/noplaylist");
     } else {
-        temp_str = g_strdup_printf("/%" PRId64, track);
+        temp_str = g_strdup_printf("/%" PRId64, ud->playlist_pos);
     }
     g_variant_dict_insert(&dict, "mpris:trackid", "o", temp_str);
     g_free(temp_str);
@@ -640,16 +642,14 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
         g_free(offset_str);
 
     } else if (g_strcmp0(method_name, "SetPosition") == 0) {
-        int64_t current_id;
         char *object_path;
         double new_position_s;
         int64_t new_position_us;
 
-        mpv_get_property(ud->mpv, "playlist-pos", MPV_FORMAT_INT64, &current_id);
         g_variant_get(parameters, "(&ox)", &object_path, &new_position_us);
         new_position_s = ((float)new_position_us) / 1000000.0; // us -> s
 
-        if (current_id == g_ascii_strtoll(object_path + 1, NULL, 10)) {
+        if (ud->playlist_pos == g_ascii_strtoll(object_path + 1, NULL, 10)) {
             mpv_set_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &new_position_s);
         }
 
@@ -723,10 +723,10 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
         ret = g_variant_new_double(100);
 
     } else if (g_strcmp0(property_name, "CanGoNext") == 0) {
-        ret = g_variant_new_boolean(TRUE);
+        ret = g_variant_new_boolean(can_go_next(ud));
 
     } else if (g_strcmp0(property_name, "CanGoPrevious") == 0) {
-        ret = g_variant_new_boolean(TRUE);
+        ret = g_variant_new_boolean(can_go_previous(ud));
 
     } else if (g_strcmp0(property_name, "CanPlay") == 0) {
         ret = g_variant_new_boolean(TRUE);
@@ -871,6 +871,28 @@ static void emit_seeked_signal(UserData *ud)
     }
 }
 
+static gboolean can_go_next(UserData *ud)
+{
+    if (ud->playlist_pos < 0 || ud->playlist_count <= 0)
+        return FALSE;
+    if (ud->playlist_count == 1)
+        return FALSE;
+    if (g_strcmp0(ud->loop_status, LOOP_PLAYLIST) == 0)
+        return TRUE;
+    return ud->playlist_pos < ud->playlist_count - 1;
+}
+
+static gboolean can_go_previous(UserData *ud)
+{
+    if (ud->playlist_pos < 0 || ud->playlist_count <= 0)
+        return FALSE;
+    if (ud->playlist_count == 1)
+        return FALSE;
+    if (g_strcmp0(ud->loop_status, LOOP_PLAYLIST) == 0)
+        return TRUE;
+    return ud->playlist_pos > 0;
+}
+
 static GVariant * set_playback_status(UserData *ud)
 {
     if (ud->idle) {
@@ -990,6 +1012,8 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 {
     const char *prop_name = NULL;
     GVariant *prop_value = NULL;
+    gboolean update_can_go_next_prev = FALSE;
+
     if (g_strcmp0(name, "pause") == 0) {
         ud->paused = *(int*)data;
         prop_name = "PlaybackStatus";
@@ -1037,6 +1061,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
+        update_can_go_next_prev = TRUE;
 
     } else if (g_strcmp0(name, "loop-playlist") == 0) {
         char *status = *(char **)data;
@@ -1054,6 +1079,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         }
         prop_name = "LoopStatus";
         prop_value = g_variant_new_string(ud->loop_status);
+        update_can_go_next_prev = TRUE;
 
     } else if (g_strcmp0(name, "shuffle") == 0) {
         int shuffle = *(int*)data;
@@ -1066,6 +1092,13 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         prop_name = "Fullscreen";
         prop_value = g_variant_new_boolean(*status);
 
+    } else if (g_strcmp0(name, "playlist-count") == 0) {
+      ud->playlist_count = *(int64_t *)data;
+      update_can_go_next_prev = TRUE;
+
+    } else if (g_strcmp0(name, "playlist-pos") == 0) {
+      ud->playlist_pos = *(int64_t *)data;
+      update_can_go_next_prev = TRUE;
     }
 
     if (prop_name) {
@@ -1074,6 +1107,13 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         }
         g_hash_table_insert(ud->changed_properties,
                             (gpointer)prop_name, prop_value);
+    }
+
+    if (update_can_go_next_prev) {
+        g_hash_table_insert(ud->changed_properties, "CanGoNext",
+                            g_variant_new_boolean(can_go_next(ud)));
+        g_hash_table_insert(ud->changed_properties, "CanGoPrevious",
+                            g_variant_new_boolean(can_go_previous(ud)));
     }
 }
 
@@ -1187,6 +1227,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.paused = FALSE;
     ud.shuffle = FALSE;
     ud.client_name = mpv_get_property_string(mpv, "audio-client-name");
+    mpv_get_property(mpv, "playlist-count", MPV_FORMAT_INT64, &ud.playlist_count);
+    mpv_get_property(mpv, "playlist-pos", MPV_FORMAT_INT64, &ud.playlist_pos);
 
     char *bus_name = build_bus_name(ud.client_name, FALSE);
     g_main_context_push_thread_default(ctx);
@@ -1211,6 +1253,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "duration", MPV_FORMAT_INT64);
     mpv_observe_property(mpv, 0, "shuffle", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "fullscreen", MPV_FORMAT_FLAG);
+    mpv_observe_property(mpv, 0, "playlist-count", MPV_FORMAT_INT64);
+    mpv_observe_property(mpv, 0, "playlist-pos", MPV_FORMAT_INT64);
 
     g_main_loop_run(loop);
 
