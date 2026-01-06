@@ -41,9 +41,8 @@ fi
 
 if [ -n "$MPV_MPRIS_TEST_PLUGIN" ] ; then
 	if [ ! -f "$MPV_MPRIS_TEST_PLUGIN" ] ||
-	   [ ! -r "$MPV_MPRIS_TEST_PLUGIN" ] ||
-	   [ ! -x "$MPV_MPRIS_TEST_PLUGIN" ] ; then
-		echo "$MPV_MPRIS_TEST_PLUGIN not an existing file with rx perms" >&2
+	   [ ! -r "$MPV_MPRIS_TEST_PLUGIN" ] ; then
+		echo "$MPV_MPRIS_TEST_PLUGIN not an existing file with read perms" >&2
 		exit 1
 	fi
 fi
