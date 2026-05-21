@@ -64,7 +64,7 @@ wait_for () {
 
 playerctl_list_all_is_mpv () {
 	ret=0 ; player="$(playerctl --list-all 2> /dev/null)" || ret=$?
-	if [ $ret -ne 0 ] || [ "$player" != mpv ] ; then
+	if [ $ret -ne 0 ] || [[ "$player" != mpv.instance* ]] ; then
 		playerctl --list-all ; return $((ret?ret:1))
 	fi
 }
@@ -77,7 +77,7 @@ status () {
 mpris_quit () {
 	# playerctl does not yet support the MPRIS Quit API
 	# https://github.com/altdesktop/playerctl/issues/171
-	dbus-send --print-reply --dest=org.mpris.MediaPlayer2.mpv /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Quit
+	dbus-send --print-reply --dest=org.mpris.MediaPlayer2."$(playerctl --list-all 2> /dev/null | grep -E "^mpv.instance[0-9]*$")" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Quit
 }
 
 

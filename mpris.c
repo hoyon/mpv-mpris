@@ -1230,7 +1230,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_get_property(mpv, "playlist-count", MPV_FORMAT_INT64, &ud.playlist_count);
     mpv_get_property(mpv, "playlist-pos", MPV_FORMAT_INT64, &ud.playlist_pos);
 
-    char *bus_name = build_bus_name(ud.client_name, FALSE);
+    char *bus_name = g_strdup_printf("org.mpris.MediaPlayer2.%s.instance%d", ud.client_name, getpid());
     g_main_context_push_thread_default(ctx);
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                bus_name,
