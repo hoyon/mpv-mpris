@@ -92,6 +92,8 @@ typedef struct UserData
     gboolean events_setup;
     int64_t playlist_count;
     int64_t playlist_pos;
+    gchar *cached_path;
+    gchar *cached_art_url;
 } UserData;
 
 static const char *STATUS_PLAYING = "Playing";
@@ -343,14 +345,9 @@ static gchar* get_art_url(mpv_handle *mpv, char *path)
     return NULL;
 }
 
-// cached last file path, owned by mpv
-static char *cached_path = NULL;
-
-// cached last artwork url, owned by glib
-static gchar *cached_art_url = NULL;
-
-static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
+static void add_metadata_art(UserData *ud, GVariantDict *dict)
 {
+    mpv_handle *mpv = ud->mpv;
     char *path = mpv_get_property_string(mpv, "path");
 
     if (!path) {
@@ -358,17 +355,17 @@ static void add_metadata_art(mpv_handle *mpv, GVariantDict *dict)
     }
 
     // mpv may call create_metadata multiple times, so cache to save CPU
-    if (!cached_path || strcmp(path, cached_path)) {
-        mpv_free(cached_path);
-        g_free(cached_art_url);
-        cached_path = path;
-        cached_art_url = get_art_url(mpv, path);
-    } else {
-        mpv_free(path);
+    if (!ud->cached_path || strcmp(path, ud->cached_path)) {
+        g_free(ud->cached_path);
+        g_free(ud->cached_art_url);
+        ud->cached_path = g_strdup(path);
+        ud->cached_art_url = get_art_url(mpv, path);
     }
 
-    if (cached_art_url) {
-        g_variant_dict_insert(dict, "mpris:artUrl", "s", cached_art_url);
+    mpv_free(path);
+
+    if (ud->cached_art_url) {
+        g_variant_dict_insert(dict, "mpris:artUrl", "s", ud->cached_art_url);
     }
 }
 
@@ -457,7 +454,7 @@ static GVariant *create_metadata(UserData *ud)
     add_metadata_item_int(ud->mpv, &dict, "metadata/by-key/Disc", "xesam:discNumber");
 
     add_metadata_uri(ud->mpv, &dict);
-    add_metadata_art(ud->mpv, &dict);
+    add_metadata_art(ud, &dict);
     add_metadata_content_created(ud->mpv, &dict);
 
     return g_variant_dict_end(&dict);
@@ -1266,6 +1263,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     g_main_context_unref(ctx);
     g_dbus_node_info_unref(introspection_data);
     mpv_free(ud.client_name);
+    g_free(ud.cached_path);
+    g_free(ud.cached_art_url);
 
     return 0;
 }
