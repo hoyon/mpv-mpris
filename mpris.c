@@ -597,13 +597,8 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
         g_dbus_method_invocation_return_value(invocation, NULL);
 
     } else if (g_strcmp0(method_name, "PlayPause") == 0) {
-        int paused;
-        if (ud->status == STATUS_PAUSED) {
-            paused = FALSE;
-        } else {
-            paused = TRUE;
-        }
-        mpv_set_property(ud->mpv, "pause", MPV_FORMAT_FLAG, &paused);
+        const char *cmd[] = {"cycle", "pause", NULL};
+        mpv_command_async(ud->mpv, 0, cmd);
         g_dbus_method_invocation_return_value(invocation, NULL);
 
     } else if (g_strcmp0(method_name, "Play") == 0) {
