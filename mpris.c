@@ -689,7 +689,7 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(property_name, "Metadata") == 0) {
         if (!ud->metadata) {
-            ud->metadata = create_metadata(ud);
+            ud->metadata = g_variant_ref_sink(create_metadata(ud));
         }
         // Increase reference count to prevent it from being freed after returning
         g_variant_ref(ud->metadata);
@@ -900,7 +900,7 @@ static GVariant * set_playback_status(UserData *ud)
 static void set_stopped_status(UserData *ud)
 {
   const char *prop_name = "PlaybackStatus";
-  GVariant *prop_value = g_variant_new_string(STATUS_STOPPED);
+  GVariant *prop_value = g_variant_ref_sink(g_variant_new_string(STATUS_STOPPED));
 
   ud->status = STATUS_STOPPED;
 
@@ -992,7 +992,7 @@ static void on_name_lost(GDBusConnection *connection,
                                     name,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
                                     NULL, NULL, NULL,
-                                    &ud, NULL);
+                                    ud, NULL);
         g_free(name);
     } else {
       ud->root_interface_id = 0;
@@ -1022,7 +1022,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         if (ud->metadata) {
             g_variant_unref(ud->metadata);
         }
-        ud->metadata = create_metadata(ud);
+        ud->metadata = g_variant_ref_sink(create_metadata(ud));
         prop_name = "Metadata";
         prop_value = ud->metadata;
 
@@ -1095,7 +1095,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     if (prop_name) {
         if (prop_value) {
-            g_variant_ref(prop_value);
+            g_variant_ref_sink(prop_value);
         }
         g_hash_table_insert(ud->changed_properties,
                             (gpointer)prop_name, prop_value);
@@ -1103,9 +1103,9 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
 
     if (update_can_go_next_prev) {
         g_hash_table_insert(ud->changed_properties, "CanGoNext",
-                            g_variant_new_boolean(can_go_next(ud)));
+                            g_variant_ref_sink(g_variant_new_boolean(can_go_next(ud))));
         g_hash_table_insert(ud->changed_properties, "CanGoPrevious",
-                            g_variant_new_boolean(can_go_previous(ud)));
+                            g_variant_ref_sink(g_variant_new_boolean(can_go_previous(ud))));
     }
 }
 
@@ -1213,7 +1213,9 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.ctx = ctx;
     ud.status = STATUS_STOPPED;
     ud.loop_status = LOOP_NONE;
-    ud.changed_properties = g_hash_table_new(g_str_hash, g_str_equal);
+    ud.changed_properties = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                                  NULL,
+                                                  (GDestroyNotify)g_variant_unref);
     ud.seek_expected = FALSE;
     ud.idle = FALSE;
     ud.paused = FALSE;
