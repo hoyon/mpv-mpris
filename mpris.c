@@ -1223,7 +1223,9 @@ int mpv_open_cplugin(mpv_handle *mpv)
     ud.idle = FALSE;
     ud.paused = FALSE;
     ud.shuffle = FALSE;
-    ud.client_name = mpv_get_property_string(mpv, "audio-client-name");
+    char *client_name = mpv_get_property_string(mpv, "audio-client-name");
+    ud.client_name = g_strdup(client_name);
+    mpv_free(client_name);
     mpv_get_property(mpv, "playlist-count", MPV_FORMAT_INT64, &ud.playlist_count);
     mpv_get_property(mpv, "playlist-pos", MPV_FORMAT_INT64, &ud.playlist_pos);
 
@@ -1262,7 +1264,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     g_main_loop_unref(loop);
     g_main_context_unref(ctx);
     g_dbus_node_info_unref(introspection_data);
-    mpv_free(ud.client_name);
+    g_free(ud.client_name);
     g_free(ud.cached_path);
     g_free(ud.cached_art_url);
 
