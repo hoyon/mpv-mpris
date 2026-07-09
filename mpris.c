@@ -106,6 +106,7 @@ static const char *LOOP_PLAYLIST = "Playlist";
 static void setup_mpv_event_sources(UserData *ud);
 static gboolean can_go_next(UserData *ud);
 static gboolean can_go_previous(UserData *ud);
+static gboolean can_play_pause(UserData *ud);
 
 static gchar *string_to_utf8(gchar *maybe_utf8)
 {
@@ -721,10 +722,10 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
         ret = g_variant_new_boolean(can_go_previous(ud));
 
     } else if (g_strcmp0(property_name, "CanPlay") == 0) {
-        ret = g_variant_new_boolean(TRUE);
+        ret = g_variant_new_boolean(can_play_pause(ud));
 
     } else if (g_strcmp0(property_name, "CanPause") == 0) {
-        ret = g_variant_new_boolean(TRUE);
+        ret = g_variant_new_boolean(can_play_pause(ud));
 
     } else if (g_strcmp0(property_name, "CanSeek") == 0) {
         ret = g_variant_new_boolean(TRUE);
@@ -885,6 +886,11 @@ static gboolean can_go_previous(UserData *ud)
     return ud->playlist_pos > 0;
 }
 
+static gboolean can_play_pause(UserData *ud)
+{
+    return !ud->idle;
+}
+
 static GVariant * set_playback_status(UserData *ud)
 {
     if (ud->idle) {
@@ -902,10 +908,15 @@ static void set_stopped_status(UserData *ud)
   const char *prop_name = "PlaybackStatus";
   GVariant *prop_value = g_variant_ref_sink(g_variant_new_string(STATUS_STOPPED));
 
+  ud->idle = TRUE;
   ud->status = STATUS_STOPPED;
 
   g_hash_table_insert(ud->changed_properties,
                       (gpointer)prop_name, prop_value);
+  g_hash_table_insert(ud->changed_properties, "CanPlay",
+                      g_variant_ref_sink(g_variant_new_boolean(can_play_pause(ud))));
+  g_hash_table_insert(ud->changed_properties, "CanPause",
+                      g_variant_ref_sink(g_variant_new_boolean(can_play_pause(ud))));
 
   emit_property_changes(ud);
 }
@@ -1005,6 +1016,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
     const char *prop_name = NULL;
     GVariant *prop_value = NULL;
     gboolean update_can_go_next_prev = FALSE;
+    gboolean update_can_play_pause = FALSE;
 
     if (g_strcmp0(name, "pause") == 0) {
         ud->paused = *(int*)data;
@@ -1015,6 +1027,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         ud->idle = *(int*)data;
         prop_name = "PlaybackStatus";
         prop_value = set_playback_status(ud);
+        update_can_play_pause = TRUE;
 
     } else if (g_strcmp0(name, "media-title") == 0 ||
                g_strcmp0(name, "duration") == 0) {
@@ -1106,6 +1119,13 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
                             g_variant_ref_sink(g_variant_new_boolean(can_go_next(ud))));
         g_hash_table_insert(ud->changed_properties, "CanGoPrevious",
                             g_variant_ref_sink(g_variant_new_boolean(can_go_previous(ud))));
+    }
+
+    if (update_can_play_pause) {
+        g_hash_table_insert(ud->changed_properties, "CanPlay",
+                            g_variant_ref_sink(g_variant_new_boolean(can_play_pause(ud))));
+        g_hash_table_insert(ud->changed_properties, "CanPause",
+                            g_variant_ref_sink(g_variant_new_boolean(can_play_pause(ud))));
     }
 }
 
