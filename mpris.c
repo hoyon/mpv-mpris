@@ -624,15 +624,14 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(method_name, "Seek") == 0) {
         int64_t offset_us; // in microseconds
-        char *offset_str;
+        char offset_str[G_ASCII_DTOSTR_BUF_SIZE];
         g_variant_get(parameters, "(x)", &offset_us);
         double offset_s = offset_us / 1000000.0;
-        offset_str = g_strdup_printf("%f", offset_s);
+        g_ascii_dtostr(offset_str, G_ASCII_DTOSTR_BUF_SIZE, offset_s);
 
         const char *cmd[] = {"seek", offset_str, NULL};
         mpv_command_async(ud->mpv, 0, cmd);
         g_dbus_method_invocation_return_value(invocation, NULL);
-        g_free(offset_str);
 
     } else if (g_strcmp0(method_name, "SetPosition") == 0) {
         char *object_path;
