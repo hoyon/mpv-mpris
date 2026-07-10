@@ -5,8 +5,6 @@
 #include <inttypes.h>
 #include <string.h>
 
-
-
 static const char *introspection_xml =
     "<node>\n"
     "  <interface name=\"org.mpris.MediaPlayer2\">\n"
@@ -102,6 +100,8 @@ static const char *STATUS_STOPPED = "Stopped";
 static const char *LOOP_NONE = "None";
 static const char *LOOP_TRACK = "Track";
 static const char *LOOP_PLAYLIST = "Playlist";
+static const char *TRACK_PATH_PREFIX = "/mpv/mpris/Track/";
+static const char *NO_TRACK_ID = "/org/mpris/MediaPlayer2/TrackList/NoTrack";
 
 static void setup_mpv_event_sources(UserData *ud);
 static gboolean can_go_next(UserData *ud);
@@ -431,9 +431,9 @@ static GVariant *create_metadata(UserData *ud)
     // mpris:trackid
     // playlist_pos < 0 if there is no playlist or current track
     if (ud->playlist_pos < 0) {
-        temp_str = g_strdup("/noplaylist");
+        temp_str = g_strdup(NO_TRACK_ID);
     } else {
-        temp_str = g_strdup_printf("/%" PRId64, ud->playlist_pos);
+        temp_str = g_strdup_printf("%s%" PRId64, TRACK_PATH_PREFIX, ud->playlist_pos);
     }
     g_variant_dict_insert(&dict, "mpris:trackid", "o", temp_str);
     g_free(temp_str);
@@ -662,7 +662,9 @@ static void method_call_player(G_GNUC_UNUSED GDBusConnection *connection,
         g_variant_get(parameters, "(&ox)", &object_path, &new_position_us);
         new_position_s = ((float)new_position_us) / 1000000.0; // us -> s
 
-        if (ud->playlist_pos == g_ascii_strtoll(object_path + 1, NULL, 10)) {
+        if (g_str_has_prefix(object_path, TRACK_PATH_PREFIX) &&
+            ud->playlist_pos == g_ascii_strtoll(object_path + strlen(TRACK_PATH_PREFIX),
+                                                NULL, 10)) {
             mpv_set_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &new_position_s);
         }
 
