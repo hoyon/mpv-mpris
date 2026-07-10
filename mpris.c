@@ -295,6 +295,7 @@ static gchar* try_get_youtube_thumbnail(char *path)
 
 static gchar* extract_embedded_art(AVFormatContext *context) {
     AVPacket *packet = NULL;
+    enum AVCodecID codec_id = AV_CODEC_ID_NONE;
     for (unsigned int i = 0; i < context->nb_streams; i++) {
         if (context->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
             AVPacket *p = &context->streams[i]->attached_pic;
@@ -302,6 +303,7 @@ static gchar* extract_embedded_art(AVFormatContext *context) {
             // Skip the thumbnail if the size is bigger than 25MiB to avoid crashes
             if (p->size <= 25*0x100000) {
                 packet = p;
+                codec_id = context->streams[i]->codecpar->codec_id;
                 break;
             }
         }
@@ -310,8 +312,27 @@ static gchar* extract_embedded_art(AVFormatContext *context) {
         return NULL;
     }
 
+    const char *mime;
+    switch (codec_id) {
+    case AV_CODEC_ID_PNG:
+        mime = "image/png";
+        break;
+    case AV_CODEC_ID_GIF:
+        mime = "image/gif";
+        break;
+    case AV_CODEC_ID_WEBP:
+        mime = "image/webp";
+        break;
+    case AV_CODEC_ID_BMP:
+        mime = "image/bmp";
+        break;
+    default:
+        mime = "image/jpeg";
+        break;
+    }
+
     gchar *data = g_base64_encode(packet->data, packet->size);
-    gchar *img = g_strconcat("data:image/jpeg;base64,", data, NULL);
+    gchar *img = g_strconcat("data:", mime, ";base64,", data, NULL);
 
     g_free(data);
     return img;
