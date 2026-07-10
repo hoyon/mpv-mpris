@@ -1274,13 +1274,21 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     g_main_loop_run(loop);
 
-    g_dbus_connection_unregister_object(ud.connection, ud.root_interface_id);
-    g_dbus_connection_unregister_object(ud.connection, ud.player_interface_id);
+    if (ud.connection) {
+        g_dbus_connection_unregister_object(ud.connection, ud.root_interface_id);
+        g_dbus_connection_unregister_object(ud.connection, ud.player_interface_id);
+    }
+
+    if (ud.metadata) {
+        g_variant_unref(ud.metadata);
+    }
+    g_hash_table_unref(ud.changed_properties);
 
     g_bus_unown_name(ud.bus_id);
     g_main_loop_unref(loop);
     g_main_context_unref(ctx);
     g_dbus_node_info_unref(introspection_data);
+
     g_free(ud.client_name);
     g_free(ud.cached_path);
     g_free(ud.cached_art_url);
