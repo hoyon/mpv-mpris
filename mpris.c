@@ -268,7 +268,7 @@ done:
 }
 
 static const char *youtube_url_pattern =
-    "^https?:\\/\\/(?:youtu.be\\/|(?:www\\.)?youtube\\.com\\/watch\\?v=)(?<id>[a-zA-Z0-9_-]*)\\??.*";
+    "^https?:\\/\\/(?:youtu\\.be\\/|(?:www\\.)?youtube\\.com\\/watch\\?v=)(?<id>[a-zA-Z0-9_-]*)\\??.*";
 
 static GRegex *youtube_url_regex;
 
