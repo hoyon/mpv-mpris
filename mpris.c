@@ -523,12 +523,12 @@ static GVariant *get_property_root(G_GNUC_UNUSED GDBusConnection *connection,
         ret = g_variant_new_boolean(TRUE);
 
     } else if (g_strcmp0(property_name, "Fullscreen") == 0) {
-        int fullscreen;
+        int fullscreen = 0;
         mpv_get_property(ud->mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
         ret = g_variant_new_boolean(fullscreen);
 
     } else if (g_strcmp0(property_name, "CanSetFullscreen") == 0) {
-        int can_fullscreen;
+        int can_fullscreen = 0;
         mpv_get_property(ud->mpv, "vo-configured", MPV_FORMAT_FLAG, &can_fullscreen);
         ret = g_variant_new_boolean(can_fullscreen);
 
@@ -701,12 +701,12 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
         ret = g_variant_new_string(ud->loop_status);
 
     } else if (g_strcmp0(property_name, "Rate") == 0) {
-        double rate;
+        double rate = 1.0;
         mpv_get_property(ud->mpv, "speed", MPV_FORMAT_DOUBLE, &rate);
         ret = g_variant_new_double(rate);
 
     } else if (g_strcmp0(property_name, "Shuffle") == 0) {
-        int shuffle;
+        int shuffle = 0;
         mpv_get_property(ud->mpv, "shuffle", MPV_FORMAT_FLAG, &shuffle);
         ret = g_variant_new_boolean(shuffle);
 
@@ -719,13 +719,13 @@ static GVariant *get_property_player(G_GNUC_UNUSED GDBusConnection *connection,
         ret = ud->metadata;
 
     } else if (g_strcmp0(property_name, "Volume") == 0) {
-        double volume;
+        double volume = 0;
         mpv_get_property(ud->mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
         volume /= 100;
         ret = g_variant_new_double(volume);
 
     } else if (g_strcmp0(property_name, "Position") == 0) {
-        double position_s;
+        double position_s = 0;
         int64_t position_us;
         mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &position_s);
         position_us = position_s * 1000000.0; // s -> us
@@ -867,7 +867,7 @@ static gboolean emit_property_changes(gpointer data)
 static void emit_seeked_signal(UserData *ud)
 {
     GVariant *params;
-    double position_s;
+    double position_s = 0;
     int64_t position_us;
     GError *error = NULL;
     mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &position_s);
@@ -1077,7 +1077,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         if (g_strcmp0(status, "no") != 0) {
             ud->loop_status = LOOP_TRACK;
         } else {
-            char *playlist_status;
+            char *playlist_status = NULL;
             mpv_get_property(ud->mpv, "loop-playlist", MPV_FORMAT_STRING, &playlist_status);
             if (g_strcmp0(playlist_status, "no") != 0) {
                 ud->loop_status = LOOP_PLAYLIST;
@@ -1095,7 +1095,7 @@ static void handle_property_change(const char *name, void *data, UserData *ud)
         if (g_strcmp0(status, "no") != 0) {
             ud->loop_status = LOOP_PLAYLIST;
         } else {
-            char *file_status;
+            char *file_status = NULL;
             mpv_get_property(ud->mpv, "loop-file", MPV_FORMAT_STRING, &file_status);
             if (g_strcmp0(file_status, "no") != 0) {
                 ud->loop_status = LOOP_TRACK;
