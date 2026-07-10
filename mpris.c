@@ -389,8 +389,8 @@ static void add_metadata_content_created(mpv_handle *mpv, GVariantDict *dict)
     }
 
     if (g_date_valid(date)) {
-        gchar iso8601[20];
-        g_date_strftime(iso8601, 20, "%Y-%m-%dT00:00:00Z", date);
+        gchar iso8601[21];
+        g_date_strftime(iso8601, 21, "%Y-%m-%dT00:00:00Z", date);
         g_variant_dict_insert(dict, "xesam:contentCreated", "s", iso8601);
     }
 
