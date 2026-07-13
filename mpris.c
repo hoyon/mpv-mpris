@@ -540,11 +540,8 @@ static GVariant *get_property_root(G_GNUC_UNUSED GDBusConnection *connection,
 
     } else if (g_strcmp0(property_name, "Identity") == 0) {
         char *client_name = mpv_get_property_string(ud->mpv, "audio-client-name");
-        ret = g_variant_new_string(
-            (client_name && *client_name) ? client_name : "mpv"
-        );
-        if (client_name)
-            mpv_free(client_name);
+        ret = g_variant_new_string(client_name);
+        mpv_free(client_name);
 
     } else if (g_strcmp0(property_name, "DesktopEntry") == 0) {
         ret = g_variant_new_string("mpv");
