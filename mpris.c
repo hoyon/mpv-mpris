@@ -342,6 +342,12 @@ static gchar* try_get_embedded_art(char *path)
 {
     gchar *out = NULL;
     AVFormatContext *context = NULL;
+
+    // Do not let FFmpeg open pipes/devices/fd aliases: that can consume mpv's input.
+    if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
+        return NULL;
+    }
+
     if (!avformat_open_input(&context, path, NULL, NULL)) {
         out = extract_embedded_art(context);
         avformat_close_input(&context);
