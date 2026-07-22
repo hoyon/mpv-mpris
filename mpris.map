@@ -1,0 +1,6 @@
+{
+    global:
+        mpv_open_cplugin;
+    local:
+        *;
+};

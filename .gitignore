@@ -1,5 +1,8 @@
 compile_commands.json
 mpris.so
+mpris.o
+/build/
+embedded-art.mp3
 *.mpv.ipc.input.json
 *.mpv.ipc.output.json
 *.mpv.ipc

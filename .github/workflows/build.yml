@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install libmpv-dev libglib2.0-dev libavformat-dev
+          sudo apt install libmpv-dev libglib2.0-dev
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -20,13 +20,6 @@ jobs:
       - name: Build
         run: |
           make
-
-      - name: Upload binary
-        uses: actions/upload-artifact@v6
-        with:
-          name: mpris.so
-          path: mpris.so
-          if-no-files-found: error
 
       - name: Prepare for test
         run: |
@@ -51,3 +44,57 @@ jobs:
       - name: Check cleanup removed generated files
         run: |
           ! git ls-files --others | grep .
+
+  release:
+    # Oldest available runner, to keep the glibc version floor of the published
+    # binary as low as possible.
+    runs-on: ubuntu-22.04
+
+    env:
+      TAGLIB_VERSION: v2.3.1
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install libmpv-dev libglib2.0-dev cmake zlib1g-dev
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build static TagLib
+        run: |
+          git clone --depth 1 --branch "$TAGLIB_VERSION" --recurse-submodules \
+            https://github.com/taglib/taglib "$RUNNER_TEMP/taglib-src"
+          cmake -S "$RUNNER_TEMP/taglib-src" -B "$RUNNER_TEMP/taglib-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/build/taglib" \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DVISIBILITY_HIDDEN=ON \
+            -DBUILD_TESTING=OFF \
+            -DBUILD_EXAMPLES=OFF \
+            -DWITH_MOD=OFF \
+            -DWITH_SHORTEN=OFF
+          cmake --build "$RUNNER_TEMP/taglib-build" --parallel
+          cmake --install "$RUNNER_TEMP/taglib-build"
+
+      - name: Build release binary
+        run: |
+          make release
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v6
+        with:
+          name: mpris.so
+          path: mpris.so
+          if-no-files-found: error
+
+      - name: Prepare for test
+        run: |
+          sudo apt install mpv playerctl sound-theme-freedesktop bash dbus xvfb xauth jq socat gawk ffmpeg
+
+      - name: Run tests
+        run: |
+          make test test-taglib

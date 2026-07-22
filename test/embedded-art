@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+
+
+fixture="${MPV_MPRIS_TEST_FIXTURE:-.}/embedded-art.mp3"
+
+if [ ! -f "$fixture" ] ; then
+	ffmpeg -loglevel error -nostdin -y \
+		-f lavfi -i "sine=frequency=440:duration=10" \
+		-f lavfi -i "color=c=red:s=64x64:d=1" \
+		-map 0:a -map 1:v -frames:v 1 -c:v png \
+		-disposition:v attached_pic \
+		"$fixture"
+fi
+
+export MPV_MPRIS_TEST_PLAY="$fixture"
+
+
+. ./setup
+
+
+art="$(playerctl metadata mpris:artUrl)"
+
+case "$art" in
+	"data:image/png;base64,"?*) ;;
+	*)
+		echo "unexpected artUrl: ${art:0:64}" >&2
+		exit 1
+		;;
+esac
+
+
+mpris_quit
+
+wait %1

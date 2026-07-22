@@ -1,9 +1,12 @@
 #include <gio/gio.h>
 #include <glib-unix.h>
 #include <mpv/client.h>
-#include <libavformat/avformat.h>
 #include <inttypes.h>
 #include <string.h>
+
+#ifdef HAVE_TAGLIB
+#include <tag_c.h>
+#endif
 
 static const char *introspection_xml =
     "<node>\n"
@@ -293,45 +296,42 @@ static gchar* try_get_youtube_thumbnail(char *path)
     return out;
 }
 
-static gchar* extract_embedded_art(AVFormatContext *context) {
-    AVPacket *packet = NULL;
-    enum AVCodecID codec_id = AV_CODEC_ID_NONE;
-    for (unsigned int i = 0; i < context->nb_streams; i++) {
-        if (context->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
-            AVPacket *p = &context->streams[i]->attached_pic;
+#ifdef HAVE_TAGLIB
 
-            // Skip the thumbnail if the size is bigger than 25MiB to avoid crashes
-            if (p->size <= 25*0x100000) {
-                packet = p;
-                codec_id = context->streams[i]->codecpar->codec_id;
-                break;
-            }
+static const char* sniff_image_mime(const guchar *data, unsigned int size)
+{
+    if (size >= 3 && !memcmp(data, "\xFF\xD8\xFF", 3)) {
+        return "image/jpeg";
+    }
+    if (size >= 8 && !memcmp(data, "\x89PNG\r\n\x1A\n", 8)) {
+        return "image/png";
+    }
+    if (size >= 6 && (!memcmp(data, "GIF87a", 6) || !memcmp(data, "GIF89a", 6))) {
+        return "image/gif";
+    }
+    if (size >= 12 && !memcmp(data, "RIFF", 4) && !memcmp(data + 8, "WEBP", 4)) {
+        return "image/webp";
+    }
+    if (size >= 2 && !memcmp(data, "BM", 2)) {
+        return "image/bmp";
+    }
+    return NULL;
+}
+
+static gchar* extract_embedded_art(const TagLib_Complex_Property_Picture_Data *picture)
+{
+    // The MIME type comes from the tag rather than the data, and ID3v2 allows a
+    // MIME of "-->" to mean the frame holds a URL instead of an image, so prefer
+    // sniffing the content and only fall back to what the tag claims.
+    const char *mime = sniff_image_mime((const guchar *) picture->data, picture->size);
+    if (!mime) {
+        if (!picture->mimeType || !g_str_has_prefix(picture->mimeType, "image/")) {
+            return NULL;
         }
-    }
-    if (!packet) {
-        return NULL;
+        mime = picture->mimeType;
     }
 
-    const char *mime;
-    switch (codec_id) {
-    case AV_CODEC_ID_PNG:
-        mime = "image/png";
-        break;
-    case AV_CODEC_ID_GIF:
-        mime = "image/gif";
-        break;
-    case AV_CODEC_ID_WEBP:
-        mime = "image/webp";
-        break;
-    case AV_CODEC_ID_BMP:
-        mime = "image/bmp";
-        break;
-    default:
-        mime = "image/jpeg";
-        break;
-    }
-
-    gchar *data = g_base64_encode(packet->data, packet->size);
+    gchar *data = g_base64_encode((const guchar *) picture->data, picture->size);
     gchar *img = g_strconcat("data:", mime, ";base64,", data, NULL);
 
     g_free(data);
@@ -340,21 +340,46 @@ static gchar* extract_embedded_art(AVFormatContext *context) {
 
 static gchar* try_get_embedded_art(char *path)
 {
-    gchar *out = NULL;
-    AVFormatContext *context = NULL;
-
-    // Do not let FFmpeg open pipes/devices/fd aliases: that can consume mpv's input.
+    // Do not let TagLib open pipes/devices/fd aliases: that can consume mpv's input.
     if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
         return NULL;
     }
 
-    if (!avformat_open_input(&context, path, NULL, NULL)) {
-        out = extract_embedded_art(context);
-        avformat_close_input(&context);
+    TagLib_File *file = taglib_file_new(path);
+    if (!file) {
+        return NULL;
     }
 
+    gchar *out = NULL;
+    TagLib_Complex_Property_Attribute ***props =
+        taglib_complex_property_get(file, "PICTURE");
+
+    if (props) {
+        TagLib_Complex_Property_Picture_Data picture;
+        memset(&picture, 0, sizeof(picture));
+        taglib_picture_from_complex_property(props, &picture);
+
+        // Skip the thumbnail if the size is bigger than 25MiB to avoid crashes
+        if (picture.data && picture.size > 0 && picture.size <= 25*0x100000) {
+            out = extract_embedded_art(&picture);
+        }
+
+        taglib_complex_property_free(props);
+    }
+
+    taglib_file_free(file);
     return out;
 }
+
+#else
+
+static gchar* try_get_embedded_art(char *path)
+{
+    (void) path;
+    return NULL;
+}
+
+#endif
 
 static gchar* get_art_url(mpv_handle *mpv, char *path)
 {

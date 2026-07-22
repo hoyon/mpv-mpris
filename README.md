@@ -30,7 +30,9 @@ mpv --script=/path/to/mpris.so video.mp4
 Packages are available for many [distributions](https://repology.org/project/mpv-mpris/versions).
 
 For 64-bit x86 Linux a pre-built version is [available here](https://github.com/hoyon/mpv-mpris/releases)
-and can be copied into one of the mpv scripts directories documented above.
+and can be copied into one of the mpv scripts directories documented above. It
+links TagLib statically, used under the terms of the Mozilla Public License 1.1,
+and otherwise depends only on glib and the C library.
 
 A self-built `mpris.so` file can be installed with `make install` and will
 be installed to the appropriate mpv scripts directory for your current user
@@ -44,9 +46,13 @@ Build requirements:
  - mpv development files
  - glib development files
  - gio development files
- - libavformat development files
+ - TagLib 2.0 or newer development files (optional)
 
 Building should be as simple as running `make` in the source code directory.
+
+TagLib is used to read cover art embedded in media files. It is detected
+automatically and can be forced on or off with `make USE_TAGLIB=1` or
+`make USE_TAGLIB=0`. Without it every other source of cover art still works.
 
 ## Test
 
