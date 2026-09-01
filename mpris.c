@@ -840,6 +840,12 @@ static gboolean emit_property_changes(gpointer data)
     gpointer prop_name, prop_value;
     GHashTableIter iter;
 
+    // Without a bus there is nobody to emit to. The pending properties are
+    // keyed by a fixed set of names, so leaving them is bounded.
+    if (!ud->connection) {
+        return TRUE;
+    }
+
     if (g_hash_table_size(ud->changed_properties) > 0) {
         GVariant *params;
         GVariantBuilder *properties = g_variant_builder_new(G_VARIANT_TYPE("a{sv}"));
@@ -878,6 +884,11 @@ static void emit_seeked_signal(UserData *ud)
     double position_s = 0;
     int64_t position_us;
     GError *error = NULL;
+
+    if (!ud->connection) {
+        return;
+    }
+
     mpv_get_property(ud->mpv, "time-pos", MPV_FORMAT_DOUBLE, &position_s);
     position_us = position_s * 1000000.0; // s -> us
     params = g_variant_new("(x)", position_us);
@@ -1301,6 +1312,15 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "fullscreen", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv, 0, "playlist-count", MPV_FORMAT_INT64);
     mpv_observe_property(mpv, 0, "playlist-pos", MPV_FORMAT_INT64);
+
+    // Set these up even if the bus is never acquired. on_bus_acquired() is the
+    // only other caller, so without a session bus the mpv event sources would
+    // never be attached, MPV_EVENT_SHUTDOWN would never be seen, and the loop
+    // below would never quit, hanging mpv on startup.
+    if (!ud.events_setup) {
+        setup_mpv_event_sources(&ud);
+        ud.events_setup = TRUE;
+    }
 
     g_main_loop_run(loop);
 

@@ -6,7 +6,8 @@ tests = \
 	play \
 	play-pause \
 	stop \
-	quit
+	quit \
+	no-dbus
 
 .PHONY: \
 	test \

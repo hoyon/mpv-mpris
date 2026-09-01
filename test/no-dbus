@@ -1,0 +1,92 @@
+#!/bin/bash
+
+set -e
+
+
+exec {BASH_XTRACEFD}>&1
+echo "$0" "$@"
+set -x
+
+
+test -n "$MPV_MPRIS_TEST_NAME" ||
+exec "./env" "$0" "$@"
+
+
+test="$(basename "$0")"
+
+
+# This test cannot source ./setup: that waits for the player to appear on the
+# session bus, which is exactly what is unavailable here.
+ipc="$MPV_MPRIS_TEST_MPV_IPC/$test.mpv.ipc"
+mpv_log="$MPV_MPRIS_TEST_LOG/$test.mpv.log"
+file="$MPV_MPRIS_TEST_PLAY"
+
+
+# Point at a socket that cannot exist, overriding the session started by ./env.
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$MPV_MPRIS_TEST_MPV_IPC/$test.no-such-bus"
+
+
+params=()
+if [ -n "$MPV_MPRIS_TEST_PLUGIN" ] ; then
+	params+=("--load-scripts=no" "--script=$MPV_MPRIS_TEST_PLUGIN")
+fi
+
+
+rm -f "$ipc" "$mpv_log"
+
+
+mpv \
+"${params[@]}" \
+--no-config \
+--pause \
+--idle=yes \
+--vo=null --ao=null \
+--msg-time \
+--msg-module \
+--msg-level=cplayer=trace,mpris=trace \
+--log-file="$mpv_log" \
+--input-ipc-server="$ipc" \
+"$file" \
+&
+mpv_pid=$!
+
+
+# mpv must come up at all: without the fix the plugin never attaches its mpv
+# event sources, its main loop never quits, and mpv hangs before this point.
+timeout=0
+until [ -S "$ipc" ] ; do
+	if [ "$timeout" -eq 20 ] ; then
+		echo "mpv did not start within ${timeout}s without a session bus" >&2
+		kill -9 "$mpv_pid" 2> /dev/null || true
+		exit 1
+	fi
+	if ! kill -0 "$mpv_pid" 2> /dev/null ; then
+		echo 'mpv exited before creating its IPC socket' >&2
+		exit 1
+	fi
+	sleep 1
+	timeout=$((timeout+1))
+done
+
+
+# and it must still respond to quit rather than hanging in the plugin's loop
+jq --null-input --compact-output '{command: ["quit"]}' |
+socat - "UNIX-CONNECT:$ipc" > /dev/null
+
+
+ret=0
+timeout=0
+until ! kill -0 "$mpv_pid" 2> /dev/null ; do
+	if [ "$timeout" -eq 20 ] ; then
+		echo "mpv did not exit within ${timeout}s after quit" >&2
+		kill -9 "$mpv_pid" 2> /dev/null || true
+		exit 1
+	fi
+	sleep 1
+	timeout=$((timeout+1))
+done
+
+
+wait "$mpv_pid" || ret=$?
+echo "mpv exit code: $ret"
+test "$ret" -eq 0
