@@ -1003,7 +1003,7 @@ static char *generate_random_id(void)
     return id;
 }
 
-static char *build_bus_name(const char *client_name, gboolean unique_suffix)
+static char *build_bus_name(const char *client_name)
 {
     GString *name = g_string_new("org.mpris.MediaPlayer2.mpv");
 
@@ -1012,11 +1012,9 @@ static char *build_bus_name(const char *client_name, gboolean unique_suffix)
         g_string_append_printf(name, ".%s", client_name);
     }
 
-    if (unique_suffix) {
-        char *id = generate_random_id();
-        g_string_append_printf(name, ".instance-%s", id);
-        g_free(id);
-    }
+    char *id = generate_random_id();
+    g_string_append_printf(name, ".instance-%s", id);
+    g_free(id);
 
     return g_string_free(name, FALSE);
 }
@@ -1034,7 +1032,7 @@ static void on_name_lost(GDBusConnection *connection,
     }
 
     if (connection) {
-        char *name = build_bus_name(ud->client_name, TRUE);
+        char *name = build_bus_name(ud->client_name);
         ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                     name,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
@@ -1282,7 +1280,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_get_property(mpv, "playlist-count", MPV_FORMAT_INT64, &ud.playlist_count);
     mpv_get_property(mpv, "playlist-pos", MPV_FORMAT_INT64, &ud.playlist_pos);
 
-    char *bus_name = build_bus_name(ud.client_name, FALSE);
+    char *bus_name = build_bus_name(ud.client_name);
     g_main_context_push_thread_default(ctx);
     ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                bus_name,
