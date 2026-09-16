@@ -1027,6 +1027,12 @@ static void on_name_lost(GDBusConnection *connection,
 {
     UserData *ud = user_data;
 
+    // Stop the plugin if the initial connection to the session bus failed.
+    if (!connection && !ud->events_setup) {
+        g_main_loop_quit(ud->loop);
+        return;
+    }
+
     if (connection) {
         char *name = build_bus_name(ud->client_name, TRUE);
         ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
