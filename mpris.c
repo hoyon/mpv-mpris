@@ -72,7 +72,11 @@ typedef struct UserData
     GMainLoop *loop;
     GMainContext *ctx;
     int wakeup_pipe[2];
-    gint bus_id;
+    guint bus_id;
+    guint pending_bus_owners;
+    GSource *mpv_pipe_source;
+    GSource *timeout_source;
+    GSource *bus_retry_source;
     GDBusConnection *connection;
     GDBusInterfaceInfo *root_interface_info;
     GDBusInterfaceInfo *player_interface_info;
@@ -103,7 +107,7 @@ static const char *LOOP_PLAYLIST = "Playlist";
 static const char *TRACK_PATH_PREFIX = "/mpv/mpris/Track/";
 static const char *NO_TRACK_ID = "/org/mpris/MediaPlayer2/TrackList/NoTrack";
 
-static void setup_mpv_event_sources(UserData *ud);
+static gboolean setup_mpv_event_sources(UserData *ud);
 static gboolean can_go_next(UserData *ud);
 static gboolean can_go_previous(UserData *ud);
 static gboolean can_play_pause(UserData *ud);
@@ -958,7 +962,7 @@ static void on_bus_acquired(GDBusConnection *connection,
 {
     GError *error = NULL;
     UserData *ud = user_data;
-    ud->connection = connection;
+    g_set_object(&ud->connection, connection);
 
     if (ud->root_interface_id == 0) {
         ud->root_interface_id =
@@ -985,8 +989,10 @@ static void on_bus_acquired(GDBusConnection *connection,
     }
 
     if (!ud->events_setup) {
-        setup_mpv_event_sources(ud);
-        ud->events_setup = TRUE;
+        ud->events_setup = setup_mpv_event_sources(ud);
+        if (!ud->events_setup) {
+            g_main_loop_quit(ud->loop);
+        }
     }
 }
 
@@ -1009,7 +1015,29 @@ static char *build_bus_name(const char *client_name)
 
     // don't append client name if it is the default value 'mpv'
     if (g_strcmp0(client_name, "mpv") != 0) {
-        g_string_append_printf(name, ".%s", client_name);
+        g_string_append_c(name, '.');
+        if (!client_name || !*client_name) {
+            g_string_append_c(name, '_');
+        } else {
+            for (const unsigned char *p = (const unsigned char *)client_name; *p; p++) {
+                if (g_ascii_isalpha(*p) || *p == '-' ||
+                    (g_ascii_isdigit(*p) && p != (const unsigned char *)client_name)) {
+                    g_string_append_c(name, *p);
+                } else if (*p == ' ') {
+                    g_string_append_c(name, '_');
+                } else {
+                    g_string_append_printf(name, "_%02X", *p);
+                }
+            }
+        }
+
+        // Reserve 18 bytes for the instance suffix within D-Bus's 255-byte limit.
+        if (name->len > 237) {
+            gchar *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, name->str, -1);
+            g_string_truncate(name, 172);
+            g_string_append_printf(name, "_%s", hash);
+            g_free(hash);
+        }
     }
 
     char *id = generate_random_id();
@@ -1017,6 +1045,31 @@ static char *build_bus_name(const char *client_name)
     g_free(id);
 
     return g_string_free(name, FALSE);
+}
+
+static void bus_owner_destroyed(gpointer data)
+{
+    UserData *ud = data;
+    ud->pending_bus_owners--;
+}
+
+static gboolean retry_bus_name(gpointer data)
+{
+    UserData *ud = data;
+    char *name = build_bus_name(ud->client_name);
+    guint previous_id = ud->bus_id;
+    ud->bus_id = 0;
+    g_bus_unown_name(previous_id);
+    ud->bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+                                name,
+                                G_BUS_NAME_OWNER_FLAGS_NONE,
+                                NULL, NULL, NULL,
+                                ud, bus_owner_destroyed);
+    if (ud->bus_id != 0) {
+        ud->pending_bus_owners++;
+    }
+    g_free(name);
+    return G_SOURCE_REMOVE;
 }
 
 static void on_name_lost(GDBusConnection *connection,
@@ -1039,6 +1092,11 @@ static void on_name_lost(GDBusConnection *connection,
                                     NULL, NULL, NULL,
                                     ud, NULL);
         g_free(name);
+
+        // Let GLib finish processing the failed request before releasing it.
+        ud->bus_retry_source = g_idle_source_new();
+        g_source_set_callback(ud->bus_retry_source, retry_bus_name, ud, NULL);
+        g_source_attach(ud->bus_retry_source, ud->ctx);
     } else {
       ud->root_interface_id = 0;
       ud->player_interface_id = 0;
@@ -1208,35 +1266,37 @@ static void wakeup_handler(void *fd)
     (void)!write(*((int*)fd), "0", 1);
 }
 
-static void setup_mpv_event_sources(UserData *ud)
+static gboolean setup_mpv_event_sources(UserData *ud)
 {
     GError *error = NULL;
-    GSource *mpv_pipe_source;
-    GSource *timeout_source;
 
-    g_unix_open_pipe(ud->wakeup_pipe, 0, &error);
-    if (error != NULL) {
-        g_printerr("%s", error->message);
+    if (!g_unix_open_pipe(ud->wakeup_pipe, FD_CLOEXEC, &error)) {
+        g_printerr("%s\n", error->message);
         g_clear_error(&error);
+        return FALSE;
     }
-    fcntl(ud->wakeup_pipe[0], F_SETFL, O_NONBLOCK);
+    if (!g_unix_set_fd_nonblocking(ud->wakeup_pipe[0], TRUE, &error) ||
+        !g_unix_set_fd_nonblocking(ud->wakeup_pipe[1], TRUE, &error)) {
+        g_printerr("%s\n", error->message);
+        g_clear_error(&error);
+        return FALSE;
+    }
     mpv_set_wakeup_callback(ud->mpv, wakeup_handler, &ud->wakeup_pipe[1]);
 
-    mpv_pipe_source = g_unix_fd_source_new(ud->wakeup_pipe[0], G_IO_IN);
-    g_source_set_callback(mpv_pipe_source,
+    ud->mpv_pipe_source = g_unix_fd_source_new(ud->wakeup_pipe[0], G_IO_IN);
+    g_source_set_callback(ud->mpv_pipe_source,
                           G_SOURCE_FUNC(event_handler),
                           ud,
                           NULL);
-    g_source_attach(mpv_pipe_source, ud->ctx);
-    g_source_unref(mpv_pipe_source);
+    g_source_attach(ud->mpv_pipe_source, ud->ctx);
 
-    timeout_source = g_timeout_source_new(100);
-    g_source_set_callback(timeout_source,
+    ud->timeout_source = g_timeout_source_new(100);
+    g_source_set_callback(ud->timeout_source,
                           G_SOURCE_FUNC(emit_property_changes),
                           ud,
                           NULL);
-    g_source_attach(timeout_source, ud->ctx);
-    g_source_unref(timeout_source);
+    g_source_attach(ud->timeout_source, ud->ctx);
+    return TRUE;
 }
 
 // Plugin entry point
@@ -1244,7 +1304,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 {
     GMainContext *ctx;
     GMainLoop *loop;
-    UserData ud = {0};
+    UserData ud = {.wakeup_pipe = {-1, -1}};
     GError *error = NULL;
     GDBusNodeInfo *introspection_data = NULL;
 
@@ -1282,14 +1342,18 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     char *bus_name = build_bus_name(ud.client_name);
     g_main_context_push_thread_default(ctx);
-    ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
+    if (g_dbus_is_name(bus_name)) {
+        ud.bus_id = g_bus_own_name(G_BUS_TYPE_SESSION,
                                bus_name,
                                G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE,
                                on_bus_acquired,
                                NULL,
                                on_name_lost,
-                               &ud, NULL);
-    g_main_context_pop_thread_default(ctx);
+                               &ud, bus_owner_destroyed);
+        if (ud.bus_id != 0) {
+            ud.pending_bus_owners++;
+        }
+    }
     g_free(bus_name);
 
     // Receive event for property changes
@@ -1306,11 +1370,42 @@ int mpv_open_cplugin(mpv_handle *mpv)
     mpv_observe_property(mpv, 0, "playlist-count", MPV_FORMAT_INT64);
     mpv_observe_property(mpv, 0, "playlist-pos", MPV_FORMAT_INT64);
 
-    g_main_loop_run(loop);
+    if (ud.bus_id != 0) {
+        g_main_loop_run(loop);
+    } else {
+        g_printerr("Failed to register MPRIS bus name\n");
+    }
+
+    if (ud.bus_retry_source) {
+        g_source_destroy(ud.bus_retry_source);
+        g_source_unref(ud.bus_retry_source);
+    }
+    mpv_set_wakeup_callback(mpv, NULL, NULL);
+    if (ud.mpv_pipe_source) {
+        g_source_destroy(ud.mpv_pipe_source);
+        g_source_unref(ud.mpv_pipe_source);
+    }
+    if (ud.timeout_source) {
+        g_source_destroy(ud.timeout_source);
+        g_source_unref(ud.timeout_source);
+    }
+    for (int i = 0; i < 2; i++) {
+        if (ud.wakeup_pipe[i] >= 0) {
+            close(ud.wakeup_pipe[i]);
+        }
+    }
 
     if (ud.connection) {
         g_dbus_connection_unregister_object(ud.connection, ud.root_interface_id);
         g_dbus_connection_unregister_object(ud.connection, ud.player_interface_id);
+    }
+
+    if (ud.bus_id != 0) {
+        g_bus_unown_name(ud.bus_id);
+    }
+    // Unowning is asynchronous; keep callback data alive until all owners finish.
+    while (ud.pending_bus_owners != 0) {
+        g_main_context_iteration(ctx, TRUE);
     }
 
     if (ud.metadata) {
@@ -1318,7 +1413,8 @@ int mpv_open_cplugin(mpv_handle *mpv)
     }
     g_hash_table_unref(ud.changed_properties);
 
-    g_bus_unown_name(ud.bus_id);
+    g_clear_object(&ud.connection);
+    g_main_context_pop_thread_default(ctx);
     g_main_loop_unref(loop);
     g_main_context_unref(ctx);
     g_dbus_node_info_unref(introspection_data);
